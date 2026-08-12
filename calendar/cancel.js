@@ -3,6 +3,7 @@
  */
 const { callGraphAPI } = require('../utils/graph-api');
 const { ensureAuthenticated } = require('../auth');
+const { eventPath } = require('./paths');
 
 /**
  * Cancel event handler
@@ -26,7 +27,7 @@ async function handleCancelEvent(args) {
     const accessToken = await ensureAuthenticated();
 
     // Build API endpoint
-    const endpoint = `me/events/${eventId}/cancel`;
+    const endpoint = `${eventPath(eventId, args.calendarId)}/cancel`;
 
     // Request body
     const body = {

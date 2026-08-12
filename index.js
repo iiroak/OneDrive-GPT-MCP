@@ -17,130 +17,133 @@ const { emailTools } = require('./email');
 const { folderTools } = require('./folder');
 const { rulesTools } = require('./rules');
 const { onedriveTools } = require('./onedrive');
-const { powerAutomateTools } = require('./power-automate');
-
-// Log startup information
-console.error(`STARTING ${config.SERVER_NAME.toUpperCase()} MCP SERVER`);
-console.error(`Test mode is ${config.USE_TEST_MODE ? 'enabled' : 'disabled'}`);
-
-// Combine all tools
+const { TOOL_OUTPUT_SCHEMA, toStructuredContent } = require('./utils/mcp-output');
 const TOOLS = [
   ...authTools,
   ...calendarTools,
   ...emailTools,
   ...folderTools,
   ...rulesTools,
-  ...onedriveTools,
-  ...powerAutomateTools
+  ...onedriveTools
 ];
 
-// Create server with tools capabilities
-const server = new Server(
-  { name: config.SERVER_NAME, version: config.SERVER_VERSION },
-  {
-    capabilities: {
-      tools: {}
-    }
-  }
-);
+const REMOTE_EXCLUDED_TOOLS = new Set(['authenticate']);
+const WRITE_TOOLS = new Set([
+  'draft-email', 'send-email', 'mark-as-read', 'trash-email', 'permanently-delete-email',
+  'accept-event', 'decline-event', 'create-event', 'update-event', 'cancel-event', 'delete-event',
+  'create-calendar', 'update-calendar', 'copy-event', 'migrate-events', 'delete-calendar',
+  'create-master-category', 'update-master-category', 'delete-master-category',
+  'create-folder', 'move-emails', 'create-rule', 'edit-rule-sequence',
+  'onedrive-upload', 'onedrive-upload-large', 'onedrive-import-url', 'onedrive-share',
+  'onedrive-create-folder', 'onedrive-move', 'onedrive-delete'
+]);
+const DESTRUCTIVE_TOOLS = new Set([
+  'permanently-delete-email', 'cancel-event', 'delete-event', 'delete-calendar', 'migrate-events', 'delete-master-category', 'onedrive-delete'
+]);
 
-// Handle all requests
-server.fallbackRequestHandler = async (request) => {
-  try {
-    const { method, params, id } = request;
-    console.error(`REQUEST: ${method} [${id}]`);
-    
-    // Initialize handler
-    if (method === "initialize") {
-      console.error(`INITIALIZE REQUEST: ID [${id}]`);
+function toolPolicy(tool) {
+  const destructive = DESTRUCTIVE_TOOLS.has(tool.name);
+  const write = WRITE_TOOLS.has(tool.name);
+  return {
+    readOnlyHint: !write,
+    destructiveHint: destructive,
+    openWorldHint: write,
+    ...(tool.name === 'mark-as-read' ? { idempotentHint: true } : {})
+  };
+}
+
+function requiredScope(toolName) {
+  if (DESTRUCTIVE_TOOLS.has(toolName)) return 'outlook:destructive';
+  if (WRITE_TOOLS.has(toolName)) return 'outlook:write';
+  return 'outlook:read';
+}
+
+function visibleTools(remote) {
+  return remote ? TOOLS.filter(tool => !REMOTE_EXCLUDED_TOOLS.has(tool.name)) : TOOLS;
+}
+
+function createMcpServer({ remote = false, scopes = ['outlook:read', 'outlook:write', 'outlook:destructive'] } = {}) {
+  const tools = visibleTools(remote);
+  const server = new Server(
+    { name: config.SERVER_NAME, version: config.SERVER_VERSION },
+    { capabilities: { tools: {} } }
+  );
+
+  server.fallbackRequestHandler = async (request) => {
+    const { method, params } = request;
+
+    if (method === 'tools/list') {
       return {
-        protocolVersion: "2025-11-25",
-        capabilities: {
-          tools: {}
-        },
-        serverInfo: { name: config.SERVER_NAME, version: config.SERVER_VERSION }
-      };
-    }
-    
-    // Tools list handler
-    if (method === "tools/list") {
-      console.error(`TOOLS LIST REQUEST: ID [${id}]`);
-      console.error(`TOOLS COUNT: ${TOOLS.length}`);
-      console.error(`TOOLS NAMES: ${TOOLS.map(t => t.name).join(', ')}`);
-      
-      return {
-        tools: TOOLS.map(tool => ({
+        tools: tools.map(tool => ({
           name: tool.name,
-          description: tool.description,
-          inputSchema: tool.inputSchema
+          title: tool.title || tool.name,
+           description: tool.description,
+           inputSchema: tool.inputSchema,
+           outputSchema: TOOL_OUTPUT_SCHEMA,
+           annotations: toolPolicy(tool),
+           _meta: {
+             ...(tool.meta || {}),
+             securitySchemes: [{ type: 'oauth2', scopes: [requiredScope(tool.name)] }]
+           }
         }))
       };
     }
-    
-    // Required empty responses for other capabilities
-    if (method === "resources/list") return { resources: [] };
-    if (method === "prompts/list") return { prompts: [] };
-    
-    // Tool call handler
-    if (method === "tools/call") {
-      try {
-        const { name, arguments: args = {} } = params || {};
-        
-        console.error(`TOOL CALL: ${name}`);
-        
-        // Find the tool handler
-        const tool = TOOLS.find(t => t.name === name);
-        
-        if (tool && tool.handler) {
-          return await tool.handler(args);
-        }
-        
-        // Tool not found
+
+    if (method === 'resources/list') return { resources: [] };
+    if (method === 'prompts/list') return { prompts: [] };
+
+    if (method === 'tools/call') {
+      const { name, arguments: args = {} } = params || {};
+      const tool = tools.find(candidate => candidate.name === name);
+      if (!tool || typeof tool.handler !== 'function') {
+        return { isError: true, content: [{ type: 'text', text: `Tool not found: ${name}` }] };
+      }
+      const scope = requiredScope(name);
+      if (remote && !scopes.includes(scope)) {
         return {
-          error: {
-            code: -32601,
-            message: `Tool not found: ${name}`
-          }
+          isError: true,
+          content: [{ type: 'text', text: `This action requires the ${scope} scope.` }]
         };
+      }
+      try {
+        const result = await tool.handler(args);
+        return { ...result, structuredContent: toStructuredContent(result) };
       } catch (error) {
-        console.error(`Error in tools/call:`, error);
+        console.error(`Error in tool ${name}: ${error.message}`);
         return {
-          error: {
-            code: -32603,
-            message: `Error processing tool call: ${error.message}`
-          }
+          isError: true,
+          content: [{ type: 'text', text: `Tool failed: ${error.message}` }]
         };
       }
     }
-    
-    // For any other method, return method not found
-    return {
-      error: {
-        code: -32601,
-        message: `Method not found: ${method}`
-      }
-    };
-  } catch (error) {
-    console.error(`Error in fallbackRequestHandler:`, error);
-    return {
-      error: {
-        code: -32603,
-        message: `Error processing request: ${error.message}`
-      }
-    };
-  }
-};
 
-// Make the script executable
-process.on('SIGTERM', () => {
-  console.error('SIGTERM received but staying alive');
-});
+    return { error: { code: -32601, message: `Method not found: ${method}` } };
+  };
+  return server;
+}
 
-// Start the server
-const transport = new StdioServerTransport();
-server.connect(transport)
-  .then(() => console.error(`${config.SERVER_NAME} connected and listening`))
-  .catch(error => {
+async function startStdio() {
+  console.error(`STARTING ${config.SERVER_NAME.toUpperCase()} MCP SERVER`);
+  console.error(`Test mode is ${config.USE_TEST_MODE ? 'enabled' : 'disabled'}`);
+  const server = createMcpServer();
+  await server.connect(new StdioServerTransport());
+  console.error(`${config.SERVER_NAME} connected and listening`);
+}
+
+if (require.main === module) {
+  startStdio().catch(error => {
     console.error(`Connection error: ${error.message}`);
     process.exit(1);
   });
+}
+
+module.exports = {
+  TOOLS,
+  WRITE_TOOLS,
+  DESTRUCTIVE_TOOLS,
+  createMcpServer,
+  requiredScope,
+  toolPolicy,
+  visibleTools,
+  startStdio
+};

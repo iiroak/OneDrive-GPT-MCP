@@ -3,6 +3,8 @@
  */
 const { callGraphAPI } = require('../utils/graph-api');
 const { ensureAuthenticated } = require('../auth');
+const capability = require('./capability');
+const config = require('../config');
 
 /**
  * Get download URL handler
@@ -71,11 +73,20 @@ async function handleDownload(args) {
       };
     }
 
+    const temporary = capability.issue(response, config.PUBLIC_BASE_URL, config.ONEDRIVE_DOWNLOAD_CAPABILITY_TTL);
     return {
       content: [{
         type: "text",
-        text: `Download URL for "${response.name}" (${formatSize(response.size)}):\n\n${downloadUrl}\n\nNote: This URL is pre-authenticated and expires after a short time.`
-      }]
+        text: `Temporary download URL for "${response.name}" (${formatSize(response.size)}):\n\n${temporary.url}\n\nThe MCP server keeps the Microsoft Graph URL private and expires this capability after a short time.`
+      }],
+      structuredContent: {
+        download_url: temporary.url,
+        item_id: response.id,
+        file_name: response.name,
+        mime_type: response.file?.mimeType || 'application/octet-stream',
+        size: response.size || 0,
+        expires_at: temporary.expiresAt
+      }
     };
   } catch (error) {
     if (error.message === 'Authentication required') {

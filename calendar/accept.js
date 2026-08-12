@@ -3,6 +3,7 @@
  */
 const { callGraphAPI } = require('../utils/graph-api');
 const { ensureAuthenticated } = require('../auth');
+const { eventPath } = require('./paths');
 
 /**
  * Accept event handler
@@ -26,7 +27,7 @@ async function handleAcceptEvent(args) {
     const accessToken = await ensureAuthenticated();
 
     // Build API endpoint
-    const endpoint = `me/events/${eventId}/accept`;
+    const endpoint = `${eventPath(eventId, args.calendarId)}/accept`;
 
     // Request body
     const body = {

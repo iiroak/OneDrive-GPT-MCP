@@ -13,7 +13,7 @@ async function handleShare(args) {
   const itemId = args.itemId;
   const path = args.path;
   const type = args.type || 'view'; // view, edit, embed
-  const scope = args.scope || 'anonymous'; // anonymous, organization
+  const scope = args.scope || 'organization'; // anonymous, organization
 
   if (!itemId && !path) {
     return {

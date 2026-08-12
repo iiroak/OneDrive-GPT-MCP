@@ -5,6 +5,34 @@ const https = require('https');
 const config = require('../config');
 const mockData = require('./mock-data');
 
+function graphBaseUrl() {
+  return new URL(config.GRAPH_API_ENDPOINT);
+}
+
+function buildGraphUrl(path, queryParams = {}) {
+  const base = graphBaseUrl();
+  let finalUrl;
+
+  try {
+    if (/^https?:\/\//i.test(path)) {
+      finalUrl = new URL(path);
+      if (finalUrl.protocol !== 'https:' || finalUrl.origin !== base.origin) {
+        throw new Error('Graph URL is outside the approved Microsoft Graph origin');
+      }
+    } else {
+      finalUrl = new URL(String(path).replace(/^\/+/, ''), base);
+    }
+  } catch (error) {
+    throw new Error(`Invalid Graph URL: ${error.message}`);
+  }
+
+  for (const [key, value] of Object.entries(queryParams || {})) {
+    if (value !== undefined && value !== null) finalUrl.searchParams.set(key, String(value));
+  }
+
+  return finalUrl;
+}
+
 /**
  * Makes a request to the Microsoft Graph API
  * @param {string} accessToken - The access token for authentication
@@ -24,62 +52,17 @@ async function callGraphAPI(accessToken, method, path, data = null, queryParams 
   try {
     console.error(`Making real API call: ${method} ${path}`);
     
-    // Check if path already contains the full URL (from nextLink)
-    let finalUrl;
-    if (path.startsWith('http://') || path.startsWith('https://')) {
-      // Path is already a full URL (from pagination nextLink)
-      finalUrl = path;
-      console.error(`Using full URL from nextLink: ${finalUrl}`);
-    } else {
-      // Build URL from path and queryParams
-      // Encode path segments properly
-      const encodedPath = path.split('/')
-        .map(segment => encodeURIComponent(segment))
-        .join('/');
-      
-      // Build query string from parameters with special handling for OData filters
-      let queryString = '';
-      if (Object.keys(queryParams).length > 0) {
-        // Handle $filter parameter specially to ensure proper URI encoding
-        const filter = queryParams.$filter;
-        if (filter) {
-          delete queryParams.$filter; // Remove from regular params
-        }
-        
-        // Build query string with proper encoding for regular params
-        const params = new URLSearchParams();
-        for (const [key, value] of Object.entries(queryParams)) {
-          params.append(key, value);
-        }
-        
-        queryString = params.toString();
-        
-        // Add filter parameter separately with proper encoding
-        if (filter) {
-          if (queryString) {
-            queryString += `&$filter=${encodeURIComponent(filter)}`;
-          } else {
-            queryString = `$filter=${encodeURIComponent(filter)}`;
-          }
-        }
-        
-        if (queryString) {
-          queryString = '?' + queryString;
-        }
-        
-        console.error(`Query string: ${queryString}`);
-      }
-      
-      finalUrl = `${config.GRAPH_API_ENDPOINT}${encodedPath}${queryString}`;
-      console.error(`Full URL: ${finalUrl}`);
-    }
+    const finalUrl = buildGraphUrl(path, queryParams);
+    console.error(`Graph request: ${method} ${finalUrl.pathname}`);
     
     return new Promise((resolve, reject) => {
       const options = {
         method: method,
         headers: {
           'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
+          'Content-Type': Buffer.isBuffer(data) || (method === 'PUT' && String(path).endsWith('/content'))
+            ? 'application/octet-stream'
+            : 'application/json'
         }
       };
       
@@ -93,7 +76,7 @@ async function callGraphAPI(accessToken, method, path, data = null, queryParams 
         res.on('end', () => {
           if (res.statusCode >= 200 && res.statusCode < 300) {
             try {
-              responseData = responseData ? responseData : '{}';
+            responseData = responseData ? responseData : '{}';
               const jsonResponse = JSON.parse(responseData);
               resolve(jsonResponse);
             } catch (error) {
@@ -112,8 +95,11 @@ async function callGraphAPI(accessToken, method, path, data = null, queryParams 
         reject(new Error(`Network error during API call: ${error.message}`));
       });
       
-      if (data && (method === 'POST' || method === 'PATCH' || method === 'PUT')) {
-        req.write(JSON.stringify(data));
+      if (data !== null && data !== undefined && (method === 'POST' || method === 'PATCH' || method === 'PUT')) {
+        const payload = Buffer.isBuffer(data) || (method === 'PUT' && String(path).endsWith('/content'))
+          ? data
+          : JSON.stringify(data);
+        req.write(payload);
       }
       
       req.end();
@@ -165,6 +151,7 @@ async function callGraphAPIPaginated(accessToken, method, path, queryParams = {}
       
       if (nextLink) {
         // Pass the full nextLink URL directly to callGraphAPI
+        buildGraphUrl(nextLink);
         currentUrl = nextLink;
         currentParams = {}; // nextLink already contains all params
         console.error(`Pagination: Following nextLink, ${allItems.length} items so far`);
@@ -201,7 +188,7 @@ async function callGraphAPIDownload(accessToken, path) {
   }
 
   return new Promise((resolve, reject) => {
-    const fullUrl = `${config.GRAPH_API_ENDPOINT}${path}`;
+    const fullUrl = buildGraphUrl(path);
     console.error(`Making download request: GET ${fullUrl}`);
 
     const options = {

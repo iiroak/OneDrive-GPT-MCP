@@ -1,0 +1,62 @@
+{
+  "id": "outlook",
+  "name": "Outlook and OneDrive",
+  "endpoint": "http://127.0.0.1:8767/outlook/internal-admin/v1",
+  "unit": "mcp-outlook.service",
+  "token_env": "MCP_ADMIN_OUTLOOK_TOKEN",
+  "manifest": {
+    "protocol": "iroak.mcp-admin/v1",
+    "service": {
+      "id": "outlook",
+      "name": "Outlook and OneDrive",
+      "version": "2.1.0-chatgpt",
+      "description": "MCP remoto para Outlook y OneDrive con cuenta Microsoft personal.",
+      "public_url": "https://mcp.iroak.dev/outlook/mcp"
+    },
+    "config": [
+      {
+        "id": "microsoft",
+        "title": "Cuenta Microsoft",
+        "description": "Configuración de la aplicación Entra y permisos Graph delegados.",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "ms_client_id": {"type": "string", "title": "Client ID", "minLength": 1},
+            "ms_client_secret": {"type": "string", "title": "Client secret", "writeOnly": true, "minLength": 1},
+            "ms_tenant_id": {"type": "string", "title": "Tenant", "minLength": 1},
+            "ms_scopes": {"type": "string", "title": "Scopes", "minLength": 1}
+          }
+        }
+      },
+      {
+        "id": "security",
+        "title": "Seguridad MCP",
+        "description": "Credenciales que invalidan clientes ChatGPT existentes al rotarse.",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "mcp_token": {"type": "string", "title": "Token bootstrap MCP", "writeOnly": true, "minLength": 32},
+            "oauth_secret": {"type": "string", "title": "Clave de firma OAuth", "writeOnly": true, "minLength": 32}
+          }
+        }
+      },
+      {
+        "id": "runtime",
+        "title": "Endpoint remoto",
+        "description": "URL pública y listener local del transporte MCP.",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "http_host": {"type": "string", "title": "Host local", "minLength": 1},
+            "http_port": {"type": "string", "title": "Puerto local", "minLength": 1}
+          }
+        }
+      }
+    ],
+    "actions": [
+      {"id": "validate", "title": "Validar configuración", "description": "Comprueba que la configuración requerida está presente."},
+      {"id": "restart", "title": "Reiniciar MCP", "description": "Aplica los cambios de configuración.", "confirm": true, "impact": {"requires_restart": true}},
+      {"id": "rotate-oauth", "title": "Rotar firma OAuth", "description": "Genera una nueva clave e invalida clientes existentes.", "confirm": true, "impact": {"destructive": true, "requires_restart": true, "invalidates_oauth_clients": true}}
+    ]
+  }
+}

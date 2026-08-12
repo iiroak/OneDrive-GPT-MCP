@@ -2,22 +2,33 @@ const fs = require('fs').promises;
 const path = require('path');
 const https = require('https');
 const querystring = require('querystring');
+const appConfig = require('../config');
 
 class TokenStorage {
   constructor(config) {
-    const tenantId = process.env.MS_TENANT_ID || 'common';
+    config = config || {};
+    const baseConfig = Object.keys(config).length ? config : appConfig;
+    const tenantId = process.env.MS_TENANT_ID || baseConfig.MS_TENANT_ID || 'consumers';
     const authorityHost = (process.env.MS_AUTHORITY_HOST || 'https://login.microsoftonline.com').replace(/\/+$/, '');
 
     // Support both MS_CLIENT_ID (auth server / .env) and OUTLOOK_CLIENT_ID (Claude Desktop config)
     const clientId = process.env.MS_CLIENT_ID || process.env.OUTLOOK_CLIENT_ID;
     const clientSecret = process.env.MS_CLIENT_SECRET || process.env.OUTLOOK_CLIENT_SECRET;
 
+    const authConfig = baseConfig.AUTH_CONFIG || {};
+    const defaultTokenStorePath = path.join(
+      process.env.HOME || process.env.USERPROFILE || require('os').homedir(),
+      '.outlook-mcp-tokens.json'
+    );
+
     this.config = {
-      tokenStorePath: path.join(process.env.HOME || process.env.USERPROFILE, '.outlook-mcp-tokens.json'),
-      clientId,
-      clientSecret,
-      redirectUri: process.env.MS_REDIRECT_URI || 'http://localhost:3333/auth/callback',
-      scopes: (process.env.MS_SCOPES || 'offline_access User.Read Mail.Read').split(' '),
+      tokenStorePath: authConfig.tokenStorePath || defaultTokenStorePath,
+      clientId: clientId || authConfig.clientId,
+      clientSecret: clientSecret || authConfig.clientSecret,
+      redirectUri: process.env.MS_REDIRECT_URI || authConfig.redirectUri || 'http://localhost:3333/auth/callback',
+      scopes: String(process.env.MS_SCOPES || (Array.isArray(authConfig.scopes)
+        ? authConfig.scopes.join(' ')
+        : authConfig.scopes || 'offline_access User.Read Mail.Read')).split(/\s+/),
       tenantId,
       tokenEndpoint: process.env.MS_TOKEN_ENDPOINT || `${authorityHost}/${tenantId}/oauth2/v2.0/token`,
       refreshTokenBuffer: 5 * 60 * 1000, // 5 minutes buffer for token refresh
@@ -28,7 +39,7 @@ class TokenStorage {
     this._refreshPromise = null;
 
     if (!this.config.clientId || !this.config.clientSecret) {
-      console.warn("TokenStorage: Client ID or Secret is not configured (checked MS_CLIENT_ID/OUTLOOK_CLIENT_ID). Token refresh will fail.");
+      console.warn("TokenStorage: MS_CLIENT_ID or MS_CLIENT_SECRET is not configured. Token operations might fail.");
     }
   }
 
@@ -103,14 +114,12 @@ class TokenStorage {
           return await this.refreshAccessToken();
         } catch (refreshError) {
           console.error('Failed to refresh access token:', refreshError);
-          this.tokens = null; // Invalidate tokens on refresh failure
-          await this._saveTokensToFile(); // Persist invalidation
+          await this.clearTokens();
           return null;
         }
       } else {
         console.warn('No refresh token available. Cannot refresh access token.');
-        this.tokens = null; // Invalidate tokens as they are expired and cannot be refreshed
-        await this._saveTokensToFile(); // Persist invalidation
+        await this.clearTokens();
         return null;
       }
     }

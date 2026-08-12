@@ -15,7 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Architecture Overview
 
 This is a modular MCP (Model Context Protocol) server that provides Claude with access to Microsoft 365 services:
-- **Outlook** - Email, calendar, folders, rules
+- **Outlook** - Email, calendar, folders, rules, and Outlook categories
 - **OneDrive** - Files, folders, sharing
 - **Power Automate** - Flows, environments, runs
 
@@ -27,7 +27,7 @@ This is a modular MCP (Model Context Protocol) server that provides Claude with 
 ### Modules
 Each module exports tools and handlers:
 - `auth/` - OAuth 2.0 authentication with token management (Graph + Flow)
-- `calendar/` - Calendar operations (list, create, accept, decline, delete events)
+- `calendar/` - Calendar CRUD, event CRUD, copy/migrate, categories, accept, decline, and delete operations
 - `email/` - Email management (list, search, read, send, mark as read)
 - `folder/` - Folder operations (list, create, move)
 - `rules/` - Email rules management

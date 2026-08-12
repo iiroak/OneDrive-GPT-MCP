@@ -3,6 +3,7 @@
  */
 const { callGraphAPI } = require('../utils/graph-api');
 const { ensureAuthenticated } = require('../auth');
+const { eventPath } = require('./paths');
 
 /**
  * Delete event handler
@@ -26,7 +27,7 @@ async function handleDeleteEvent(args) {
     const accessToken = await ensureAuthenticated();
 
     // Build API endpoint
-    const endpoint = `me/events/${eventId}`;
+    const endpoint = eventPath(eventId, args.calendarId);
 
     // Make API call
     await callGraphAPI(accessToken, 'DELETE', endpoint);

@@ -14,6 +14,56 @@ function simulateGraphAPIResponse(method, path, data, queryParams) {
   console.error(`Simulating response for: ${method} ${path}`);
   
   if (method === 'GET') {
+    if (path.includes('masterCategories')) {
+      return {
+        value: [
+          { id: 'category-classes', displayName: 'Clases UMayor', color: 'preset9' },
+          { id: 'category-exams', displayName: 'Evaluaciones UMayor', color: 'preset1' }
+        ]
+      };
+    }
+    if (path === 'me/calendars' || path.includes('/calendars/') && !path.includes('/events')) {
+      return {
+        id: path === 'me/calendars' ? undefined : path.split('/').pop(),
+        name: path === 'me/calendars' ? undefined : 'Simulated calendar',
+        value: path === 'me/calendars'
+          ? [{ id: 'calendar-1', name: 'Simulated calendar', canEdit: true, isRemovable: true }]
+          : undefined,
+        canEdit: true,
+        isRemovable: true
+      };
+    }
+    if (path.includes('calendarView')) {
+      return {
+        value: [{
+          id: 'simulated-event-1',
+          subject: 'Simulated class',
+          body: { contentType: 'HTML', content: 'Simulated event' },
+          bodyPreview: 'Simulated event',
+          start: { dateTime: '2026-08-11T10:00:00', timeZone: 'UTC' },
+          end: { dateTime: '2026-08-11T11:00:00', timeZone: 'UTC' },
+          categories: ['Clases UMayor'],
+          type: 'singleInstance',
+          isOrganizer: true,
+          isOnlineMeeting: false
+        }]
+      };
+    }
+    if (path.includes('/events/')) {
+      return {
+        id: path.split('/').pop(),
+        subject: 'Simulated event',
+        body: { contentType: 'HTML', content: 'Simulated event' },
+        bodyPreview: 'Simulated event',
+        start: { dateTime: '2026-08-11T10:00:00', timeZone: 'UTC' },
+        end: { dateTime: '2026-08-11T11:00:00', timeZone: 'UTC' },
+        categories: ['Clases UMayor'],
+        type: 'singleInstance',
+        isOrganizer: true,
+        isOnlineMeeting: false,
+        changeKey: 'simulated-change-key'
+      };
+    }
     if (path.includes('messages') && !path.includes('sendMail')) {
       // Simulate a successful email list/search response
       if (path.includes('/messages/')) {
@@ -130,6 +180,16 @@ function simulateGraphAPIResponse(method, path, data, queryParams) {
         ]
       };
     }
+  } else if (method === 'POST' && path === 'me/calendars') {
+    return { id: 'simulated-new-calendar', name: data.name, canEdit: true, isRemovable: true };
+  } else if (method === 'POST' && path.includes('/events')) {
+    return { id: 'simulated-new-event', ...data };
+  } else if (method === 'POST' && path.includes('masterCategories')) {
+    return { id: 'simulated-new-category', ...data };
+  } else if (method === 'PATCH' && (path.includes('/events/') || path.includes('/calendars/') || path.includes('masterCategories'))) {
+    return { id: path.split('/').pop(), ...data };
+  } else if (method === 'DELETE' && (path.includes('/events') || path.includes('/calendars/') || path.includes('masterCategories'))) {
+    return {};
   } else if (method === 'POST' && path.includes('sendMail')) {
     // Simulate a successful email send
     return {};

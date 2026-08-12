@@ -2,11 +2,8 @@
  * Authentication module for Outlook MCP server
  */
 const tokenManager = require('./token-manager');
-const TokenStorage = require('./token-storage');
+const tokenStorage = require('./token-storage-instance');
 const { authTools } = require('./tools');
-
-// Singleton TokenStorage instance for automatic token refresh
-const tokenStorage = new TokenStorage();
 
 /**
  * Ensures the user is authenticated and returns an access token.
@@ -31,6 +28,7 @@ async function ensureAuthenticated(forceNew = false) {
 
 module.exports = {
   tokenManager,
+  tokenStorage,
   authTools,
   ensureAuthenticated
 };

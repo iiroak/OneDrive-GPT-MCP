@@ -3,6 +3,7 @@
  */
 const { callGraphAPI } = require('../utils/graph-api');
 const { ensureAuthenticated } = require('../auth');
+const { eventPath } = require('./paths');
 
 /**
  * Decline event handler
@@ -26,7 +27,7 @@ async function handleDeclineEvent(args) {
     const accessToken = await ensureAuthenticated();
 
     // Build API endpoint
-    const endpoint = `me/events/${eventId}/decline`;
+    const endpoint = `${eventPath(eventId, args.calendarId)}/decline`;
 
     // Request body
     const body = {

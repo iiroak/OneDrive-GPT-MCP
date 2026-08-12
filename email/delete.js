@@ -50,3 +50,5 @@ async function handleDeleteEmail(args = {}) {
 }
 
 module.exports = handleDeleteEmail;
+module.exports.handleTrashEmail = async args => handleDeleteEmail({ ...args, permanent: false });
+module.exports.handlePermanentlyDeleteEmail = async args => handleDeleteEmail({ ...args, permanent: true });

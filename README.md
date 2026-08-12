@@ -2,13 +2,18 @@
 
 # M365 Assistant MCP Server
 
-A comprehensive MCP (Model Context Protocol) server that connects Claude with Microsoft 365 services through the Microsoft Graph API and Power Automate API.
+This fork exposes a Streamable HTTP MCP endpoint for ChatGPT at
+`https://mcp.iroak.dev/outlook/mcp`. Its administrative adapter follows the
+`iroak.mcp-admin/v1` contract used by the MCP Admin panel.
+
+The remote service provides Outlook and OneDrive through Microsoft Graph with
+delegated OAuth. The repository also retains Power Automate modules for legacy
+or local use, but they are not registered in the remote ChatGPT tool set.
 
 ## Supported Services
 
 - **Outlook** - Email, calendar, folders, and rules
 - **OneDrive** - Files, folders, search, and sharing
-- **Power Automate** - Flows, environments, and run history
 
 ## Directory Structure
 
@@ -17,12 +22,21 @@ A comprehensive MCP (Model Context Protocol) server that connects Claude with Mi
 ├── config.js                # Configuration settings
 ├── auth/                    # Authentication modules
 │   ├── index.js             # Authentication exports
-│   ├── token-manager.js     # Token storage and refresh (Graph + Flow)
+│   ├── token-manager.js     # Legacy token storage and refresh
 │   └── tools.js             # Auth-related tools
 ├── calendar/                # Calendar functionality
 │   ├── index.js             # Calendar exports
 │   ├── list.js              # List events
 │   ├── create.js            # Create event
+│   ├── calendars.js         # Calendar container CRUD
+│   ├── get.js               # Read a complete event
+│   ├── copy.js              # Copy an event without deleting the source
+│   ├── migrate.js           # Copy, verify, and remove source events
+│   ├── categories.js        # Master category mutations
+│   ├── paths.js             # Encoded Graph calendar paths
+│   ├── event-payload.js     # Event payload normalization
+│   ├── update.js            # Update event fields and categories
+│   ├── master-categories.js # List Outlook master categories
 │   ├── delete.js            # Delete event
 │   ├── cancel.js            # Cancel event
 │   ├── accept.js            # Accept event
@@ -48,11 +62,14 @@ A comprehensive MCP (Model Context Protocol) server that connects Claude with Mi
 │   ├── list.js              # List files/folders
 │   ├── search.js            # Search files
 │   ├── download.js          # Get download URL
+│   ├── capability.js        # Short-lived server-side download capabilities
+│   ├── import-url.js        # Stream a capability URL into OneDrive
+│   ├── upload-file.js       # File-path based Graph upload session
 │   ├── upload.js            # Simple upload (<4MB)
 │   ├── upload-large.js      # Chunked upload (>4MB)
 │   ├── share.js             # Create sharing link
 │   └── folder.js            # Create/delete folders
-├── power-automate/          # Power Automate functionality
+├── power-automate/          # Retained Power Automate modules (not remote)
 │   ├── index.js             # Power Automate exports
 │   ├── flow-api.js          # Flow API client
 │   ├── list-environments.js # List environments
@@ -68,15 +85,32 @@ A comprehensive MCP (Model Context Protocol) server that connects Claude with Mi
 
 ## Features
 
-- **Authentication**: OAuth 2.0 authentication with Microsoft Graph API (+ Flow API for Power Automate)
+- **Authentication**: Microsoft OAuth for Graph and OAuth/PKCE for the remote MCP client
 - **Email Management**: List, search, read, send, and organize emails
-- **Calendar Management**: List, create, accept, decline, and delete calendar events
+- **Calendar Management**: Calendar CRUD, event CRUD, copy/migrate, categories, accept, decline, and delete
 - **OneDrive Integration**: List, search, upload, download, and share files
-- **Power Automate**: List environments/flows, trigger flows, view run history
 - **Modular Structure**: Clean separation of concerns for maintainability
 - **Test Mode**: Simulated responses for testing without real API calls
 
 ## Available Tools
+
+### Structured output
+
+Every exposed tool publishes an `outputSchema` and returns both the existing
+human-readable `content` text and machine-readable `structuredContent`:
+
+```json
+{
+  "message": "Human-readable result of the tool call.",
+  "data": {}
+}
+```
+
+`message` is always present. `data` is optional and is populated when a tool
+already has an additional structured payload, such as `about`. This preserves
+the existing text response while giving clients a stable envelope for every
+tool. Clients should use the declared `outputSchema` rather than infer a
+schema from the text response.
 
 ### Outlook (Email & Calendar)
 | Tool | Description |
@@ -87,7 +121,19 @@ A comprehensive MCP (Model Context Protocol) server that connects Claude with Mi
 | `send-email` | Send a new email |
 | `mark-as-read` | Mark email as read/unread |
 | `list-events` | List calendar events |
+| `list-calendars` | List Outlook calendars |
+| `create-calendar` | Create a blank Outlook calendar |
+| `update-calendar` | Rename or recolor a calendar |
+| `delete-calendar` | Delete a non-default calendar |
+| `get-event` | Read a complete event |
 | `create-event` | Create calendar event |
+| `update-event` | Update an existing event, including its categories |
+| `copy-event` | Copy an event to another calendar without deleting the source |
+| `migrate-events` | Copy, verify, and delete source events with explicit confirmation |
+| `list-master-categories` | List Outlook category names and colors |
+| `create-master-category` | Create an Outlook master category |
+| `update-master-category` | Change a master category color |
+| `delete-master-category` | Delete an Outlook master category |
 | `accept-event` | Accept event invitation |
 | `decline-event` | Decline event invitation |
 | `delete-event` | Delete calendar event |
@@ -105,28 +151,18 @@ A comprehensive MCP (Model Context Protocol) server that connects Claude with Mi
 | `onedrive-download` | Get download URL |
 | `onedrive-upload` | Upload small file (<4MB) |
 | `onedrive-upload-large` | Chunked upload (>4MB) |
+| `onedrive-import-url` | Server-side import of an approved HTTPS capability URL |
 | `onedrive-share` | Create sharing link |
 | `onedrive-create-folder` | Create folder |
 | `onedrive-delete` | Delete file or folder |
-
-### Power Automate
-| Tool | Description |
-|------|-------------|
-| `flow-list-environments` | List Power Platform environments |
-| `flow-list` | List flows in environment |
-| `flow-run` | Trigger a manual flow |
-| `flow-list-runs` | Get flow run history |
-| `flow-toggle` | Enable/disable a flow |
 
 ## Quick Start
 
 1. **Install dependencies**: `npm install`
 2. **Azure setup**: Register app in Azure Portal (see detailed steps below)
 3. **Configure environment**: Copy `.env.example` to `.env` and add your Azure credentials
-4. **Configure Claude**: Update your Claude Desktop config with the server path
-5. **Start auth server**: `npm run auth-server`
-6. **Authenticate**: Use the authenticate tool in Claude to get the OAuth URL
-7. **Start using**: Access your M365 data through Claude!
+4. **Run locally**: Use `npm start:http` for the remote-compatible HTTP server or `npm start` for `stdio`
+5. **Authenticate**: Use the remote OAuth flow or the local authentication tool, depending on the transport
 
 ## Installation
 
@@ -150,7 +186,7 @@ npm install
 3. Click "New registration"
 4. Name: "M365 MCP Server"
 5. Account type: "Accounts in any organizational directory and personal Microsoft accounts"
-6. Redirect URI: Web → `http://localhost:3333/auth/callback`
+6. Redirect URI: Web -> `https://mcp.iroak.dev/outlook/microsoft/callback` for the deployed remote service
 7. Click "Register"
 8. Copy the "Application (client) ID" for your `.env` file
 
@@ -162,13 +198,10 @@ npm install
    - `offline_access`
    - `User.Read`
    - `Mail.Read`, `Mail.ReadWrite`, `Mail.Send`
-   - `Calendars.Read`, `Calendars.ReadWrite`
+    - `Calendars.Read`, `Calendars.ReadWrite`
+    - `MailboxSettings.Read`, `MailboxSettings.ReadWrite`
    - `Files.Read`, `Files.ReadWrite`
 4. Click "Add permissions"
-
-**For Power Automate** (optional):
-- Requires additional Azure AD configuration with Flow API scope
-- See Power Automate section below for details
 
 ### Client Secret
 
@@ -190,19 +223,19 @@ Edit `.env`:
 # Get these values from Azure Portal > App Registrations > Your App
 MS_CLIENT_ID=your-application-client-id-here
 MS_CLIENT_SECRET=your-client-secret-VALUE-here
-MS_TENANT_ID=your-tenant-id-here
+# Use "consumers" for a personal Microsoft account.
+MS_TENANT_ID=consumers
 USE_TEST_MODE=false
 ```
 
 **Important Notes:**
 - Use `MS_CLIENT_ID` and `MS_CLIENT_SECRET` in the `.env` file
-- Set `MS_TENANT_ID` for single-tenant apps to avoid `/common` endpoint errors
-- For Claude Desktop config, you'll use `OUTLOOK_CLIENT_ID` and `OUTLOOK_CLIENT_SECRET`
+- The deployed service is configured through the MCP Admin panel; its secrets are not committed to this repository.
 - Always use the client secret **VALUE**, never the Secret ID
 
-### 2. Claude Desktop Configuration
+### 2. Local stdio Configuration
 
-Add to your Claude Desktop config:
+For a local MCP client, configure the stdio entry point directly:
 
 ```json
 {
@@ -212,8 +245,8 @@ Add to your Claude Desktop config:
       "args": ["/path/to/outlook-mcp/index.js"],
       "env": {
         "USE_TEST_MODE": "false",
-        "OUTLOOK_CLIENT_ID": "your-client-id",
-        "OUTLOOK_CLIENT_SECRET": "your-client-secret"
+        "MS_CLIENT_ID": "your-client-id",
+        "MS_CLIENT_SECRET": "your-client-secret"
       }
     }
   }
@@ -224,19 +257,14 @@ Add to your Claude Desktop config:
 
 ### Graph API (Outlook + OneDrive)
 
-1. Start auth server: `npm run auth-server`
-2. Use the `authenticate` tool in Claude
-3. Visit the provided URL and sign in
-4. Tokens saved to `~/.outlook-mcp-tokens.json`
+For the deployed endpoint, open the MCP Admin panel at
+`https://mcp.iroak.dev/admin`, configure the Microsoft application, and use the
+remote consent flow from ChatGPT. Microsoft tokens are stored in the configured
+service data directory and are never returned by the admin API.
 
-### Power Automate (Optional)
-
-Power Automate requires a separate token with the Flow API scope. Configure additional Azure AD permissions for `https://service.flow.microsoft.com//.default` scope.
-
-**Limitations:**
-- Only solution-aware flows are accessible
-- Only manual trigger flows can be run via API
-- Requires environment ID for most operations
+For local `stdio` development, the `authenticate` tool can start the local OAuth
+flow. The legacy auth server is available with `npm run auth-server` when that
+local workflow is required.
 
 ## Troubleshooting
 
@@ -257,7 +285,7 @@ npm run auth-server
 - Use the secret **VALUE**, not the Secret ID
 
 **"Authentication required"**
-- Delete `~/.outlook-mcp-tokens.json` and re-authenticate
+- Re-authenticate through the remote consent flow or remove the local token store configured by `MS_TOKEN_STORE_PATH`.
 
 ## Testing
 

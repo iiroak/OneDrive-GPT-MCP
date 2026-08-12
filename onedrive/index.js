@@ -6,7 +6,9 @@ const handleSearchFiles = require('./search');
 const handleDownload = require('./download');
 const handleUpload = require('./upload');
 const handleUploadLarge = require('./upload-large');
+const handleImportUrl = require('./import-url');
 const handleShare = require('./share');
+const handleMoveItem = require('./move');
 const { handleCreateFolder, handleDeleteItem } = require('./folder');
 
 // OneDrive tool definitions
@@ -117,6 +119,30 @@ const onedriveTools = [
     handler: handleUploadLarge
   },
   {
+    name: "onedrive-import-url",
+    description: "Download a file from an approved HTTPS capability URL on the server and upload it to OneDrive without placing its bytes in the MCP request.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sourceUrl: {
+          type: "string",
+          description: "Short-lived HTTPS URL returned by a trusted service"
+        },
+        path: {
+          type: "string",
+          description: "Destination path including filename"
+        },
+        conflictBehavior: {
+          type: "string",
+          description: "Behavior when file exists: 'rename' (default), 'replace', or 'fail'",
+          enum: ["rename", "replace", "fail"]
+        }
+      },
+      required: ["sourceUrl", "path"]
+    },
+    handler: handleImportUrl
+  },
+  {
     name: "onedrive-share",
     description: "Create a sharing link for a file or folder in OneDrive",
     inputSchema: {
@@ -165,6 +191,33 @@ const onedriveTools = [
     handler: handleCreateFolder
   },
   {
+    name: "onedrive-move",
+    description: "Move and/or rename an existing file or folder in OneDrive without downloading it. Either 'itemId' or 'path' must be provided, and at least one of 'destinationPath' or 'newName' is required.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        itemId: {
+          type: "string",
+          description: "ID of the item to move or rename"
+        },
+        path: {
+          type: "string",
+          description: "Path to the item (alternative to itemId)"
+        },
+        destinationPath: {
+          type: "string",
+          description: "Destination folder path. Use '/' or 'root' for the OneDrive root."
+        },
+        newName: {
+          type: "string",
+          description: "New name for the item"
+        }
+      },
+      required: []
+    },
+    handler: handleMoveItem
+  },
+  {
     name: "onedrive-delete",
     description: "Delete a file or folder from OneDrive",
     inputSchema: {
@@ -192,7 +245,9 @@ module.exports = {
   handleDownload,
   handleUpload,
   handleUploadLarge,
+  handleImportUrl,
   handleShare,
+  handleMoveItem,
   handleCreateFolder,
   handleDeleteItem
 };

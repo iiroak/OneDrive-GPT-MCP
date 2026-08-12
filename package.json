@@ -1,7 +1,7 @@
 {
   "name": "m365-mcp",
   "version": "2.0.0",
-  "description": "MCP server for Claude to access Microsoft 365 (Outlook, OneDrive, Power Automate) via Microsoft Graph API",
+  "description": "ChatGPT-focused remote MCP server for Outlook and OneDrive via Microsoft Graph API",
   "main": "index.js",
   "bin": {
     "m365-mcp": "./index.js",
@@ -9,6 +9,7 @@
   },
   "scripts": {
     "start": "node index.js",
+    "start:http": "node server.js",
     "auth-server": "node outlook-auth-server.js",
     "test-mode": "USE_TEST_MODE=true node index.js",
     "inspect": "npx @modelcontextprotocol/inspector node index.js",
@@ -18,7 +19,6 @@
     "claude",
     "outlook",
     "onedrive",
-    "power-automate",
     "microsoft-365",
     "mcp",
     "microsoft-graph",
@@ -27,8 +27,9 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.27.1",
-    "dotenv": "^16.5.0"
+    "@modelcontextprotocol/sdk": "1.27.1",
+    "dotenv": "16.5.0",
+    "express": "5.2.1"
   },
   "devDependencies": {
     "@modelcontextprotocol/inspector": "^0.10.2",
@@ -36,6 +37,6 @@
     "supertest": "^7.0.0"
   },
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=18.0.0"
   }
 }
