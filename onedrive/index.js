@@ -4,6 +4,8 @@
 const handleListFiles = require('./list');
 const handleSearchFiles = require('./search');
 const handleDownload = require('./download');
+const handleReadFile = require('./read-file');
+const handleExportFile = require('./export-file');
 const handleUpload = require('./upload');
 const handleUploadLarge = require('./upload-large');
 const handleImportUrl = require('./import-url');
@@ -69,6 +71,35 @@ const onedriveTools = [
       required: []
     },
     handler: handleDownload
+  },
+  {
+    name: "onedrive-read-file",
+    description: "Read the CONTENT of a OneDrive file as text. The server downloads the bytes and extracts the text itself, so this returns readable content directly, not a URL. Supports pdf, docx, pptx, xlsx, html and plain-text formats. Always check status: complete means everything was extracted, partial means real content is missing from text (images, charts or scanned pages), and failed means extraction did not work and you should use onedrive-export-file. Provide itemId, path, or a fileId returned by a previous call.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        itemId: { type: "string", description: "ID of the item to read" },
+        path: { type: "string", description: "Path to the file, e.g. '/Documents/notes.md'" },
+        fileId: { type: "string", description: "file_id from a previous call" },
+        maxChars: { type: "number", description: "Maximum characters to return (default 50000, max 200000)" }
+      },
+      required: []
+    },
+    handler: handleReadFile
+  },
+  {
+    name: "onedrive-export-file",
+    description: "Transfer a OneDrive file's raw bytes as an embedded MCP resource. Use for images, audio, archives, or when onedrive-read-file returns failed. Binary content is Base64-encoded and capped by OUTLOOK_FILE_INLINE_MAX_BYTES; prefer onedrive-read-file whenever text is enough. Provide itemId, path, or a fileId from a previous call.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        itemId: { type: "string", description: "ID of the item to export" },
+        path: { type: "string", description: "Path to the file" },
+        fileId: { type: "string", description: "file_id from a previous call" }
+      },
+      required: []
+    },
+    handler: handleExportFile
   },
   {
     name: "onedrive-upload",
@@ -243,6 +274,8 @@ module.exports = {
   handleListFiles,
   handleSearchFiles,
   handleDownload,
+  handleReadFile,
+  handleExportFile,
   handleUpload,
   handleUploadLarge,
   handleImportUrl,

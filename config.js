@@ -117,6 +117,32 @@ module.exports = {
     process.env.OUTLOOK_ONEDRIVE_DOWNLOAD_CAPABILITY_TTL || `${30 * 60}`,
     10
   ),
+  // File transfer / staging. Files are kept under opaque ids and consumed via
+  // text extraction, resources/read, or an inline EmbeddedResource.
+  FILE_MAX_BYTES: Number.parseInt(
+    process.env.OUTLOOK_FILE_MAX_BYTES || `${100 * 1024 * 1024}`,
+    10
+  ),
+  FILE_MAX_TOTAL_BYTES: Number.parseInt(
+    process.env.OUTLOOK_FILE_MAX_TOTAL_BYTES || `${512 * 1024 * 1024}`,
+    10
+  ),
+  FILE_INLINE_MAX_BYTES: Number.parseInt(
+    process.env.OUTLOOK_FILE_INLINE_MAX_BYTES || `${8 * 1024 * 1024}`,
+    10
+  ),
+  FILE_RETENTION_MS: Number.parseInt(
+    process.env.OUTLOOK_FILE_RETENTION_MS || `${60 * 60 * 1000}`,
+    10
+  ),
+  FILE_DOWNLOAD_TIMEOUT_MS: Number.parseInt(
+    process.env.OUTLOOK_FILE_DOWNLOAD_TIMEOUT_MS || '120000',
+    10
+  ),
+  FILE_DOWNLOAD_ALLOWED_HOSTS: parseHostList(
+    process.env.OUTLOOK_FILE_DOWNLOAD_ALLOWED_HOSTS,
+    'graph.microsoft.com,*.sharepoint.com,*.sharepointusercontent.com,*.onedrive.com,onedrive.live.com,*.onedriveusercontent.com,*.microsoftpersonalcontent.com,*.1drv.com,*.svc.ms'
+  ),
   TRANSCRIPTION_DELIVERY_TOKEN: override(
     'transcription_delivery_token',
     process.env.OUTLOOK_TRANSCRIPTION_DELIVERY_TOKEN || ''

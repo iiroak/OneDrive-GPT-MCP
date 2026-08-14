@@ -62,6 +62,9 @@ or local use, but they are not registered in the remote ChatGPT tool set.
 │   ├── list.js              # List files/folders
 │   ├── search.js            # Search files
 │   ├── download.js          # Get download URL
+│   ├── fetch-content.js     # Stage OneDrive bytes locally
+│   ├── read-file.js         # Extract file content as text
+│   ├── export-file.js       # Return raw bytes as an MCP resource
 │   ├── capability.js        # Short-lived server-side download capabilities
 │   ├── import-url.js        # Stream a capability URL into OneDrive
 │   ├── upload-file.js       # File-path based Graph upload session
@@ -79,6 +82,10 @@ or local use, but they are not registered in the remote ChatGPT tool set.
 │   └── toggle-flow.js       # Enable/disable flow
 └── utils/                   # Utility functions
     ├── graph-api.js         # Microsoft Graph API helper
+    ├── binary-fetch.js      # Bounded HTTPS redirect/download handling
+    ├── document-text.js     # PDF, OOXML, HTML and text extraction
+    ├── file-store.js        # Opaque, expiring local file handles
+    ├── zip-reader.js        # Minimal OOXML ZIP reader
     ├── odata-helpers.js     # OData query building
     └── mock-data.js         # Test mode data
 ```
@@ -88,7 +95,7 @@ or local use, but they are not registered in the remote ChatGPT tool set.
 - **Authentication**: Microsoft OAuth for Graph and OAuth/PKCE for the remote MCP client
 - **Email Management**: List, search, read, send, and organize emails
 - **Calendar Management**: Calendar CRUD, event CRUD, copy/migrate, categories, accept, decline, and delete
-- **OneDrive Integration**: List, search, upload, download, and share files
+- **OneDrive Integration**: List, search, upload, download, read, export, and share files
 - **Modular Structure**: Clean separation of concerns for maintainability
 - **Test Mode**: Simulated responses for testing without real API calls
 
@@ -148,13 +155,39 @@ schema from the text response.
 |------|-------------|
 | `onedrive-list` | List files in a path |
 | `onedrive-search` | Search files by query |
-| `onedrive-download` | Get download URL |
+| `onedrive-download` | Resolve a short-lived URL for another server to consume |
+| `onedrive-read-file` | Download and return file content as text |
+| `onedrive-export-file` | Transfer raw file bytes as an embedded MCP resource |
 | `onedrive-upload` | Upload small file (<4MB) |
 | `onedrive-upload-large` | Chunked upload (>4MB) |
 | `onedrive-import-url` | Server-side import of an approved HTTPS capability URL |
 | `onedrive-share` | Create sharing link |
 | `onedrive-create-folder` | Create folder |
 | `onedrive-delete` | Delete file or folder |
+
+### OneDrive File Transfer
+
+`onedrive-download` only resolves a short-lived capability URL. It does not make
+the bytes available to the model. For content consumption, use
+`onedrive-read-file` with `itemId` or `path`; the server fetches the bytes and
+returns extracted text directly in `structuredContent.data.text`. It supports
+plain text, Markdown, HTML, PDF, DOCX, PPTX, and XLSX. Check `status`: `complete`
+means all meaningful content was extracted, `partial` means images/charts/scanned
+content are not represented in the text, and `failed` means use
+`onedrive-export-file` instead.
+
+`onedrive-export-file` is the raw-byte fallback for images, audio, archives, and
+unsupported documents. It returns an MCP `EmbeddedResource`; binary payloads are
+Base64-encoded and capped by `OUTLOOK_FILE_INLINE_MAX_BYTES` (8 MiB by default).
+
+Both tools stage bytes under an opaque `file_id` in a private directory and return
+a `m365-file:///<file_id>` resource URI. Clients supporting MCP resources can use
+`resources/read` to redeem that URI without downloading from OneDrive again. The
+handle is short-lived and process-local by design.
+
+Downloads are HTTPS-only, follow redirects manually against an explicit host
+allowlist, enforce per-file and aggregate byte limits, verify the SHA-256 digest,
+and drop the Graph `Authorization` header when crossing to a CDN host.
 
 ## Quick Start
 

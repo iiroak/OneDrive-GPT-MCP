@@ -8,6 +8,7 @@
  */
 const { Server } = require("@modelcontextprotocol/sdk/server/index.js");
 const { StdioServerTransport } = require("@modelcontextprotocol/sdk/server/stdio.js");
+const { McpError, ErrorCode } = require("@modelcontextprotocol/sdk/types.js");
 const config = require('./config');
 
 // Import module tools
@@ -18,6 +19,7 @@ const { folderTools } = require('./folder');
 const { rulesTools } = require('./rules');
 const { onedriveTools } = require('./onedrive');
 const { TOOL_OUTPUT_SCHEMA, toStructuredContent } = require('./utils/mcp-output');
+const { FileStore, getFileStore } = require('./utils/file-store');
 const TOOLS = [
   ...authTools,
   ...calendarTools,
@@ -66,7 +68,7 @@ function createMcpServer({ remote = false, scopes = ['outlook:read', 'outlook:wr
   const tools = visibleTools(remote);
   const server = new Server(
     { name: config.SERVER_NAME, version: config.SERVER_VERSION },
-    { capabilities: { tools: {} } }
+    { capabilities: { tools: {}, resources: { listChanged: false } } }
   );
 
   server.fallbackRequestHandler = async (request) => {
@@ -89,7 +91,51 @@ function createMcpServer({ remote = false, scopes = ['outlook:read', 'outlook:wr
       };
     }
 
-    if (method === 'resources/list') return { resources: [] };
+    if (method === 'resources/list') {
+      const files = getFileStore().list();
+      return {
+        resources: files.map(entry => ({
+          uri: FileStore.resourceUri(entry.file_id),
+          name: entry.filename,
+          mimeType: entry.mime_type,
+          description: `Archivo en staging (${entry.size_bytes} bytes, expira ${new Date(entry.expiresAt).toISOString()})`
+        }))
+      };
+    }
+
+    if (method === 'resources/read') {
+      const uri = params?.uri;
+      const fileId = FileStore.parseResourceUri(uri);
+      if (!fileId) {
+        throw new McpError(
+          ErrorCode.InvalidParams,
+          `Unsupported resource URI: ${uri}. Expected m365-file:///<file_id>.`
+        );
+      }
+
+      const store = getFileStore();
+      const entry = store.get(fileId);
+      if (!entry) {
+        throw new McpError(
+          ErrorCode.InvalidParams,
+          'The resource does not exist or has expired. Call the tool that created it again.'
+        );
+      }
+
+      try {
+        const buffer = store.read(fileId);
+        const isText = /^text\/|application\/(json|xml|javascript)|\+xml$/.test(entry.mime_type);
+        return {
+          contents: [
+            isText
+              ? { uri, mimeType: entry.mime_type, text: buffer.toString('utf8') }
+              : { uri, mimeType: entry.mime_type, blob: buffer.toString('base64') }
+          ]
+        };
+      } catch (error) {
+        throw new McpError(ErrorCode.InternalError, `Unable to read resource: ${error.message}`);
+      }
+    }
     if (method === 'prompts/list') return { prompts: [] };
 
     if (method === 'tools/call') {
