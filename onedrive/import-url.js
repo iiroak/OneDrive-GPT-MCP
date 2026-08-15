@@ -29,7 +29,7 @@ function validateUrl(value, allowedHosts = config.ONEDRIVE_IMPORT_ALLOWED_HOSTS)
     throw new Error('sourceUrl must be an HTTPS URL without embedded credentials.');
   }
   if (!hostAllowed(parsed.hostname, allowedHosts)) {
-    throw new Error('sourceUrl host is not allowed for server-side import.');
+    throw new Error(`sourceUrl host is not allowed for server-side import: ${parsed.hostname}`);
   }
   return parsed;
 }
