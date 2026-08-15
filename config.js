@@ -116,6 +116,10 @@ module.exports = {
     process.env.OUTLOOK_ONEDRIVE_IMPORT_ALLOWED_HOSTS,
     publicHostname
   ),
+  CHATGPT_FILE_ALLOWED_HOSTS: parseHostList(
+    process.env.OUTLOOK_CHATGPT_FILE_ALLOWED_HOSTS,
+    'files.oaiusercontent.com'
+  ),
   ONEDRIVE_IMPORT_MAX_BYTES: Number.parseInt(
     process.env.OUTLOOK_ONEDRIVE_IMPORT_MAX_BYTES || `${200 * 1024 * 1024}`,
     10

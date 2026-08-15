@@ -475,8 +475,9 @@ está pensada para archivos menores de 4 MiB.
 | Parámetro | Tipo | Requerido | Valores |
 |---|---|---:|---|
 | `path` | string | sí | Ruta destino incluyendo nombre. |
-| `content` | string | uno de `content`/`contentBase64` | Texto UTF-8 que se subirá. |
-| `contentBase64` | string | uno de `content`/`contentBase64` | Bytes binarios codificados en Base64 estándar, por ejemplo un PDF. |
+| `content` | string | uno de `content`/`contentBase64`/`file` | Texto UTF-8 que se subirá. |
+| `contentBase64` | string | uno de `content`/`contentBase64`/`file` | Bytes binarios codificados en Base64 estándar, por ejemplo un PDF. |
+| `file` | object | uno de `content`/`contentBase64`/`file` | Archivo seleccionado o subido en ChatGPT; incluye `download_url` y `file_id`. |
 | `conflictBehavior` | string | no | `rename`, `replace` o `fail`; predeterminado `rename`. |
 
 ## `onedrive-upload-large`
@@ -484,9 +485,24 @@ está pensada para archivos menores de 4 MiB.
 **Scope:** `outlook:write`
 **Efecto:** sube un archivo grande usando una upload session y chunks.
 
-Acepta los mismos parámetros que `onedrive-upload`: `path`, `content` o
-`contentBase64`, y `conflictBehavior` (`rename`, `replace` o `fail`). Usa
-`contentBase64` para conservar bytes binarios sin convertirlos a UTF-8.
+Acepta los mismos parámetros que `onedrive-upload`: `path`, `content`,
+`contentBase64` o `file`, y `conflictBehavior` (`rename`, `replace` o `fail`).
+El campo `file` usa el soporte de ChatGPT para parámetros de archivo y se
+descarga directamente al servidor antes de iniciar la sesión de Graph.
+
+El objeto `file` tiene esta forma:
+
+```json
+{
+  "download_url": "https://files.oaiusercontent.com/...",
+  "file_id": "file_...",
+  "mime_type": "application/pdf",
+  "file_name": "document.pdf"
+}
+```
+
+La descarga solo permite HTTPS, el host `files.oaiusercontent.com`, redirects
+limitados y el máximo configurado por `OUTLOOK_ONEDRIVE_IMPORT_MAX_BYTES`.
 
 ## `onedrive-upload-session-start`
 

@@ -18,7 +18,7 @@ function hostAllowed(hostname, patterns) {
   });
 }
 
-function validateUrl(value) {
+function validateUrl(value, allowedHosts = config.ONEDRIVE_IMPORT_ALLOWED_HOSTS) {
   let parsed;
   try {
     parsed = new URL(value);
@@ -28,14 +28,20 @@ function validateUrl(value) {
   if (parsed.protocol !== 'https:' || parsed.username || parsed.password || !parsed.hostname) {
     throw new Error('sourceUrl must be an HTTPS URL without embedded credentials.');
   }
-  if (!hostAllowed(parsed.hostname, config.ONEDRIVE_IMPORT_ALLOWED_HOSTS)) {
+  if (!hostAllowed(parsed.hostname, allowedHosts)) {
     throw new Error('sourceUrl host is not allowed for server-side import.');
   }
   return parsed;
 }
 
-function downloadToFile(sourceUrl, destination, maxBytes, redirects = 0) {
-  const parsed = validateUrl(sourceUrl);
+function downloadToFile(
+  sourceUrl,
+  destination,
+  maxBytes,
+  redirects = 0,
+  allowedHosts = config.ONEDRIVE_IMPORT_ALLOWED_HOSTS
+) {
+  const parsed = validateUrl(sourceUrl, allowedHosts);
   return new Promise((resolve, reject) => {
     const request = https.get(parsed, response => {
       if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
@@ -51,7 +57,7 @@ function downloadToFile(sourceUrl, destination, maxBytes, redirects = 0) {
           reject(new Error('Invalid redirect while importing file.'));
           return;
         }
-        downloadToFile(next, destination, maxBytes, redirects + 1).then(resolve, reject);
+        downloadToFile(next, destination, maxBytes, redirects + 1, allowedHosts).then(resolve, reject);
         return;
       }
       if (response.statusCode < 200 || response.statusCode >= 300) {

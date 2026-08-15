@@ -19,6 +19,18 @@ const handleShare = require('./share');
 const handleMoveItem = require('./move');
 const { handleCreateFolder, handleDeleteItem } = require('./folder');
 
+const CHATGPT_FILE_SCHEMA = {
+  type: "object",
+  properties: {
+    download_url: { type: "string" },
+    file_id: { type: "string" },
+    mime_type: { type: "string" },
+    file_name: { type: "string" }
+  },
+  required: ["download_url", "file_id"],
+  additionalProperties: false
+};
+
 // OneDrive tool definitions
 const onedriveTools = [
   {
@@ -109,7 +121,7 @@ const onedriveTools = [
   },
   {
     name: "onedrive-upload",
-    description: "Upload a small file (< 4MB) to OneDrive",
+    description: "Upload a small file (< 4MB) to OneDrive. For a file selected or uploaded in ChatGPT, provide the file input; otherwise use content or contentBase64.",
     inputSchema: {
       type: "object",
       properties: {
@@ -125,6 +137,7 @@ const onedriveTools = [
           type: "string",
           description: "Standard Base64-encoded bytes to upload, for binary files such as PDF. Provide this or content, not both."
         },
+        file: CHATGPT_FILE_SCHEMA,
         conflictBehavior: {
           type: "string",
           description: "Behavior when file exists: 'rename' (default), 'replace', or 'fail'",
@@ -132,13 +145,14 @@ const onedriveTools = [
         }
       },
       required: ["path"],
-      anyOf: [{ required: ["content"] }, { required: ["contentBase64"] }]
+      anyOf: [{ required: ["content"] }, { required: ["contentBase64"] }, { required: ["file"] }]
     },
+    meta: { "openai/fileParams": ["file"] },
     handler: handleUpload
   },
   {
     name: "onedrive-upload-large",
-    description: "Upload a large file (> 4MB) to OneDrive using chunked upload",
+    description: "Upload a large file (> 4MB) to OneDrive using chunked upload. For a file selected or uploaded in ChatGPT, provide the file input; otherwise use contentBase64.",
     inputSchema: {
       type: "object",
       properties: {
@@ -154,6 +168,7 @@ const onedriveTools = [
           type: "string",
           description: "Standard Base64-encoded bytes to upload, for binary files such as PDF. Provide this or content, not both."
         },
+        file: CHATGPT_FILE_SCHEMA,
         conflictBehavior: {
           type: "string",
           description: "Behavior when file exists: 'rename' (default), 'replace', or 'fail'",
@@ -161,8 +176,9 @@ const onedriveTools = [
         }
       },
       required: ["path"],
-      anyOf: [{ required: ["content"] }, { required: ["contentBase64"] }]
+      anyOf: [{ required: ["content"] }, { required: ["contentBase64"] }, { required: ["file"] }]
     },
+    meta: { "openai/fileParams": ["file"] },
     handler: handleUploadLarge
   },
   {

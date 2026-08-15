@@ -6,6 +6,8 @@ const config = require('../config');
 const { callGraphAPI } = require('../utils/graph-api');
 const { ensureAuthenticated } = require('../auth');
 const { decodeUploadContent } = require('./upload-content');
+const { uploadFilePath } = require('./upload-file');
+const { withChatGPTFile } = require('./chatgpt-file');
 
 const CHUNK_SIZE = 320 * 1024 * 10; // 3.2MB chunks (must be multiple of 320KB)
 
@@ -25,6 +27,28 @@ async function handleUploadLarge(args) {
         text: "Path is required (e.g., '/Documents/largefile.zip')."
       }]
     };
+  }
+
+  if (args.file) {
+    try {
+      const response = await withChatGPTFile(
+        args.file,
+        filePath => uploadFilePath(filePath, path, conflictBehavior)
+      );
+      return {
+        content: [{
+          type: "text",
+          text: `Successfully uploaded "${response.name}" (${formatSize(response.size)})\n\nID: ${response.id}\nWeb URL: ${response.webUrl}`
+        }]
+      };
+    } catch (error) {
+      return {
+        content: [{
+          type: "text",
+          text: `Error uploading large file: ${error.message}`
+        }]
+      };
+    }
   }
 
   try {
