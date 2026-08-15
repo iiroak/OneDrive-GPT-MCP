@@ -24,12 +24,12 @@ Outlook como las de OneDrive.
 El servidor remoto utiliza Streamable HTTP:
 
 ```text
-https://mcp.iroak.dev/outlook/mcp
+https://mcp.example.com/outlook/mcp
 ```
 
-El endpoint público y la ruta `/outlook` forman parte de la configuración actual
-de producción. Los ejemplos de `deploy/` documentan el servicio systemd, nginx y
-el adaptador de administración MCP.
+El hostname y el prefijo son configurables por instalación. Los archivos de
+`deploy/` son artefactos de empaquetado; la configuración de producción se
+mantiene en la documentación privada de infraestructura del operador.
 
 Para ejecutar localmente:
 
@@ -59,7 +59,7 @@ npm start
 ├── rules/                   # Reglas de bandeja de entrada
 ├── onedrive/                # Archivos, carpetas y transferencia OneDrive
 ├── utils/                   # Graph API, staging y extracción de documentos
-├── deploy/                  # Ejemplos de systemd, nginx y MCP Admin
+├── deploy/                  # Artefactos de empaquetado y MCP Admin
 └── TOOLS.md                 # Referencia completa de tools y parámetros
 ```
 

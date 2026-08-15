@@ -5,6 +5,7 @@ const https = require('https');
 const config = require('../config');
 const { callGraphAPI } = require('../utils/graph-api');
 const { ensureAuthenticated } = require('../auth');
+const { decodeUploadContent } = require('./upload-content');
 
 const CHUNK_SIZE = 320 * 1024 * 10; // 3.2MB chunks (must be multiple of 320KB)
 
@@ -15,7 +16,6 @@ const CHUNK_SIZE = 320 * 1024 * 10; // 3.2MB chunks (must be multiple of 320KB)
  */
 async function handleUploadLarge(args) {
   const path = args.path;
-  const content = args.content;
   const conflictBehavior = args.conflictBehavior || 'rename';
 
   if (!path) {
@@ -27,18 +27,9 @@ async function handleUploadLarge(args) {
     };
   }
 
-  if (!content) {
-    return {
-      content: [{
-        type: "text",
-        text: "Content is required."
-      }]
-    };
-  }
-
   try {
+    const contentBuffer = decodeUploadContent(args);
     const accessToken = await ensureAuthenticated();
-    const contentBuffer = Buffer.from(content);
     const fileSize = contentBuffer.length;
 
     // Normalize path

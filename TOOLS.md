@@ -7,7 +7,7 @@ Referencia de las tools definidas en `index.js` y los módulos `auth/`,
 
 | Transporte | Endpoint | Tools |
 |---|---|---:|
-| MCP remoto | `https://mcp.iroak.dev/outlook/mcp` | 46 |
+| MCP remoto | `https://mcp.example.com/outlook/mcp` | 46 |
 | MCP stdio/local | `node index.js` | 46 |
 
 El remoto usa el flujo OAuth/PKCE del propio MCP para autorizar al cliente y
@@ -475,7 +475,8 @@ está pensada para archivos menores de 4 MiB.
 | Parámetro | Tipo | Requerido | Valores |
 |---|---|---:|---|
 | `path` | string | sí | Ruta destino incluyendo nombre. |
-| `content` | string | sí | Contenido que se subirá. |
+| `content` | string | uno de `content`/`contentBase64` | Texto UTF-8 que se subirá. |
+| `contentBase64` | string | uno de `content`/`contentBase64` | Bytes binarios codificados en Base64 estándar, por ejemplo un PDF. |
 | `conflictBehavior` | string | no | `rename`, `replace` o `fail`; predeterminado `rename`. |
 
 ## `onedrive-upload-large`
@@ -483,8 +484,9 @@ está pensada para archivos menores de 4 MiB.
 **Scope:** `outlook:write`
 **Efecto:** sube un archivo grande usando una upload session y chunks.
 
-Acepta los mismos parámetros que `onedrive-upload`: `path`, `content` y
-`conflictBehavior` (`rename`, `replace` o `fail`).
+Acepta los mismos parámetros que `onedrive-upload`: `path`, `content` o
+`contentBase64`, y `conflictBehavior` (`rename`, `replace` o `fail`). Usa
+`contentBase64` para conservar bytes binarios sin convertirlos a UTF-8.
 
 ## `onedrive-import-url`
 

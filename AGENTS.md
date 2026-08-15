@@ -20,7 +20,7 @@ Microsoft Graph.
 - `config.js` - Runtime configuration and Microsoft Graph settings
 - `auth/` - Microsoft Graph token storage and remote MCP OAuth
 - `calendar/`, `email/`, `folder/`, `rules/` - Outlook tools
-- `onedrive/` - OneDrive tools and file transfer support
+- `onedrive/` - Files, folders and transfer support
 - `utils/` - Graph API, file staging, download and document extraction helpers
 - `deploy/` - Production systemd, nginx and admin configuration examples
 
@@ -47,3 +47,10 @@ responds after starting the server.
 - Do not expose secrets through logs, resources or tool responses.
 - Keep production deployment paths and service configuration changes separate from
   application-only changes unless the deployment is explicitly requested.
+
+## Production deployment
+
+This repository intentionally does not document a specific host, LXC, network,
+reverse proxy, secret store or persistent production state. Review the operator's
+private infrastructure documentation before deploying. Keep production changes
+separate from application changes and never copy a local workspace to a server.

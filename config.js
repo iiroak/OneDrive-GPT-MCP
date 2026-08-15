@@ -102,7 +102,7 @@ module.exports = {
   ONEDRIVE_UPLOAD_THRESHOLD: 4 * 1024 * 1024, // 4MB - files larger than this need chunked upload
   ONEDRIVE_IMPORT_ALLOWED_HOSTS: parseHostList(
     process.env.OUTLOOK_ONEDRIVE_IMPORT_ALLOWED_HOSTS,
-    `${publicHostname},mcp.iroak.dev`
+    publicHostname
   ),
   ONEDRIVE_IMPORT_MAX_BYTES: Number.parseInt(
     process.env.OUTLOOK_ONEDRIVE_IMPORT_MAX_BYTES || `${200 * 1024 * 1024}`,

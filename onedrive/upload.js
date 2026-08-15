@@ -4,6 +4,7 @@
 const config = require('../config');
 const { callGraphAPI } = require('../utils/graph-api');
 const { ensureAuthenticated } = require('../auth');
+const { decodeUploadContent } = require('./upload-content');
 
 /**
  * Simple upload handler (for files < 4MB)
@@ -12,7 +13,6 @@ const { ensureAuthenticated } = require('../auth');
  */
 async function handleUpload(args) {
   const path = args.path;
-  const content = args.content;
   const conflictBehavior = args.conflictBehavior || 'rename'; // rename, replace, fail
 
   if (!path) {
@@ -24,17 +24,15 @@ async function handleUpload(args) {
     };
   }
 
-  if (!content) {
-    return {
-      content: [{
-        type: "text",
-        text: "Content is required."
-      }]
-    };
+  let contentBuffer;
+  try {
+    contentBuffer = decodeUploadContent(args);
+  } catch (error) {
+    return { content: [{ type: "text", text: error.message }] };
   }
 
-  // Check size - this is for simple upload only
-  const contentSize = Buffer.byteLength(content, 'utf8');
+  // Check size - this is for simple upload only.
+  const contentSize = contentBuffer.length;
   if (contentSize > config.ONEDRIVE_UPLOAD_THRESHOLD) {
     return {
       content: [{
@@ -56,7 +54,7 @@ async function handleUpload(args) {
       '@microsoft.graph.conflictBehavior': conflictBehavior
     };
 
-    const response = await callGraphAPI(accessToken, 'PUT', endpoint, content, queryParams);
+    const response = await callGraphAPI(accessToken, 'PUT', endpoint, contentBuffer, queryParams);
 
     if (!response || !response.id) {
       return {

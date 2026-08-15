@@ -113,7 +113,11 @@ const onedriveTools = [
         },
         content: {
           type: "string",
-          description: "File content to upload"
+          description: "UTF-8 text content to upload. Use contentBase64 for binary files."
+        },
+        contentBase64: {
+          type: "string",
+          description: "Standard Base64-encoded bytes to upload, for binary files such as PDF. Provide this or content, not both."
         },
         conflictBehavior: {
           type: "string",
@@ -121,7 +125,8 @@ const onedriveTools = [
           enum: ["rename", "replace", "fail"]
         }
       },
-      required: ["path", "content"]
+      required: ["path"],
+      anyOf: [{ required: ["content"] }, { required: ["contentBase64"] }]
     },
     handler: handleUpload
   },
@@ -137,7 +142,11 @@ const onedriveTools = [
         },
         content: {
           type: "string",
-          description: "File content to upload"
+          description: "UTF-8 text content to upload. Use contentBase64 for binary files."
+        },
+        contentBase64: {
+          type: "string",
+          description: "Standard Base64-encoded bytes to upload, for binary files such as PDF. Provide this or content, not both."
         },
         conflictBehavior: {
           type: "string",
@@ -145,7 +154,8 @@ const onedriveTools = [
           enum: ["rename", "replace", "fail"]
         }
       },
-      required: ["path", "content"]
+      required: ["path"],
+      anyOf: [{ required: ["content"] }, { required: ["contentBase64"] }]
     },
     handler: handleUploadLarge
   },

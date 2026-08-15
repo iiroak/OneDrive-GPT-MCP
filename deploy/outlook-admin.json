@@ -11,7 +11,7 @@
       "name": "Outlook and OneDrive",
       "version": "2.1.0-chatgpt",
       "description": "MCP remoto para Outlook y OneDrive con cuenta Microsoft personal.",
-      "public_url": "https://mcp.iroak.dev/outlook/mcp"
+      "public_url": "https://mcp.example.com/outlook/mcp"
     },
     "config": [
       {
