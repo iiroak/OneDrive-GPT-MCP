@@ -383,6 +383,21 @@ Acepta `to`, `cc`, `bcc`, `subject`, `body` e `importance` de
 Los identificadores son `DriveItem` IDs de Microsoft Graph. Para tools que aceptan
 `itemId` o `path`, basta uno de los dos.
 
+## Regla Para Adjuntos De ChatGPT
+
+Cuando el usuario adjunta un archivo en ChatGPT:
+
+1. Usar `onedrive-upload` si el archivo mide menos de 4 MiB; usar
+   `onedrive-upload-large` si mide más de 4 MiB.
+2. Pasar el adjunto en el campo superior `file`, sin modificar el objeto que
+   entrega ChatGPT.
+3. Usar `path` como destino de OneDrive y preguntar el destino si falta.
+4. No pedir ni generar Base64, no usar rutas `/mnt/data`, no usar
+   `onedrive-import-url` y no iniciar una sesión manual `onedrive-upload-session-*`.
+
+El campo `file` es automático: ChatGPT lo rellena con `download_url` y `file_id`.
+El modelo no debe inventar esos valores ni convertir el archivo a otro formato.
+
 ## `onedrive-list`
 
 **Scope:** `outlook:read`

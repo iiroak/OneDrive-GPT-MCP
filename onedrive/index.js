@@ -22,10 +22,22 @@ const { handleCreateFolder, handleDeleteItem } = require('./folder');
 const CHATGPT_FILE_SCHEMA = {
   type: "object",
   properties: {
-    download_url: { type: "string" },
-    file_id: { type: "string" },
-    mime_type: { type: "string" },
-    file_name: { type: "string" }
+    download_url: {
+      type: "string",
+      description: "ChatGPT-provided temporary download URL. Pass it unchanged; never invent or replace it."
+    },
+    file_id: {
+      type: "string",
+      description: "ChatGPT-provided file ID. Pass it unchanged."
+    },
+    mime_type: {
+      type: "string",
+      description: "Optional MIME type supplied by ChatGPT."
+    },
+    file_name: {
+      type: "string",
+      description: "Optional original filename supplied by ChatGPT."
+    }
   },
   required: ["download_url", "file_id"],
   additionalProperties: false
@@ -121,7 +133,7 @@ const onedriveTools = [
   },
   {
     name: "onedrive-upload",
-    description: "Upload a small file (< 4MB) to OneDrive. For a file selected or uploaded in ChatGPT, provide the file input; otherwise use content or contentBase64.",
+    description: "Upload a small file (< 4 MiB) to OneDrive. CHATGPT ATTACHMENT RULE: when the user attached a file, pass the attachment unchanged in the top-level 'file' field. Do not convert it to Base64, do not use a /mnt/data path, and do not call onedrive-import-url or an upload-session tool. Use 'path' for the OneDrive destination; ask for it if the user did not provide one. For an attachment over 4 MiB, use onedrive-upload-large instead.",
     inputSchema: {
       type: "object",
       properties: {
@@ -152,7 +164,7 @@ const onedriveTools = [
   },
   {
     name: "onedrive-upload-large",
-    description: "Upload a large file (> 4MB) to OneDrive using chunked upload. For a file selected or uploaded in ChatGPT, provide the file input; otherwise use contentBase64.",
+    description: "Upload a large file (> 4 MiB) to OneDrive. THIS IS THE CORRECT TOOL FOR A CHATGPT ATTACHMENT OVER 4 MiB: pass the attachment unchanged in the top-level 'file' field. Do not use content, contentBase64, a /mnt/data path, onedrive-import-url, or onedrive-upload-session-* for a ChatGPT attachment. Use 'path' for the OneDrive destination; ask for it if the user did not provide one. ChatGPT supplies file.download_url and file.file_id automatically.",
     inputSchema: {
       type: "object",
       properties: {
