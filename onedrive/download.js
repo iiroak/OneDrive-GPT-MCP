@@ -36,9 +36,11 @@ async function handleDownload(args) {
       endpoint = `me/drive/root:/${normalizedPath}`;
     }
 
-    // Get item metadata with download URL
+    // Only metadata is needed here. The capability endpoint resolves the
+    // download through Graph's /content redirect, so this tool must not depend
+    // on @microsoft.graph.downloadUrl being present in the metadata response.
     const queryParams = {
-      $select: 'id,name,size,@microsoft.graph.downloadUrl'
+      $select: 'id,name,size,file,folder'
     };
 
     const response = await callGraphAPI(accessToken, 'GET', endpoint, null, queryParams);
@@ -52,23 +54,11 @@ async function handleDownload(args) {
       };
     }
 
-    const downloadUrl = response['@microsoft.graph.downloadUrl'];
-
-    if (!downloadUrl) {
-      // If no direct download URL, this might be a folder
-      if (response.folder) {
-        return {
-          content: [{
-            type: "text",
-            text: `"${response.name}" is a folder and cannot be downloaded directly.`
-          }]
-        };
-      }
-
+    if (response.folder) {
       return {
         content: [{
           type: "text",
-          text: "Could not get download URL for this item."
+          text: `"${response.name}" is a folder and cannot be downloaded directly.`
         }]
       };
     }
