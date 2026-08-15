@@ -35,7 +35,9 @@ const WRITE_TOOLS = new Set([
   'create-calendar', 'update-calendar', 'copy-event', 'migrate-events', 'delete-calendar',
   'create-master-category', 'update-master-category', 'delete-master-category',
   'create-folder', 'move-emails', 'create-rule', 'edit-rule-sequence',
-  'onedrive-upload', 'onedrive-upload-large', 'onedrive-import-url', 'onedrive-share',
+  'onedrive-upload', 'onedrive-upload-large', 'onedrive-upload-session-start',
+  'onedrive-upload-session-chunk', 'onedrive-upload-session-complete',
+  'onedrive-upload-session-abort', 'onedrive-import-url', 'onedrive-share',
   'onedrive-create-folder', 'onedrive-move', 'onedrive-delete'
 ]);
 const DESTRUCTIVE_TOOLS = new Set([

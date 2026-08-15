@@ -9,6 +9,12 @@ const handleExportFile = require('./export-file');
 const handleUpload = require('./upload');
 const handleUploadLarge = require('./upload-large');
 const handleImportUrl = require('./import-url');
+const {
+  startUploadSession,
+  appendUploadSession,
+  finishUploadSession,
+  abortUploadSession
+} = require('./upload-session');
 const handleShare = require('./share');
 const handleMoveItem = require('./move');
 const { handleCreateFolder, handleDeleteItem } = require('./folder');
@@ -160,6 +166,102 @@ const onedriveTools = [
     handler: handleUploadLarge
   },
   {
+    name: "onedrive-upload-session-start",
+    description: "Start a resumable binary upload. Send the file in sequential Base64 chunks, then call complete.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "Destination path including filename" },
+        totalBytes: { type: "integer", minimum: 1, description: "Exact decoded byte length of the complete file" },
+        conflictBehavior: {
+          type: "string",
+          description: "Behavior when file exists: 'rename' (default), 'replace', or 'fail'",
+          enum: ["rename", "replace", "fail"]
+        }
+      },
+      required: ["path", "totalBytes"]
+    },
+    handler: async (args) => {
+      try {
+        const result = await startUploadSession(args);
+        return {
+          content: [{ type: 'text', text: `Upload session ${result.uploadId} started. Send chunks of at most ${result.chunkBytes} bytes.` }],
+          structuredContent: result
+        };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Unable to start upload session: ${error.message}` }] };
+      }
+    }
+  },
+  {
+    name: "onedrive-upload-session-chunk",
+    description: "Append one sequential Base64 chunk to a resumable OneDrive upload session.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        uploadId: { type: "string", description: "uploadId returned by onedrive-upload-session-start" },
+        offset: { type: "integer", minimum: 0, description: "Byte offset; must equal bytesReceived from the previous response" },
+        chunkBase64: { type: "string", description: "Standard Base64 bytes for this chunk" }
+      },
+      required: ["uploadId", "offset", "chunkBase64"]
+    },
+    handler: async (args) => {
+      try {
+        const result = await appendUploadSession(args);
+        return {
+          content: [{ type: 'text', text: `Received ${result.bytesReceived}/${result.totalBytes} bytes.` }],
+          structuredContent: result
+        };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Unable to append upload chunk: ${error.message}` }] };
+      }
+    }
+  },
+  {
+    name: "onedrive-upload-session-complete",
+    description: "Upload a completed resumable file to OneDrive.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        uploadId: { type: "string", description: "uploadId returned by onedrive-upload-session-start" }
+      },
+      required: ["uploadId"]
+    },
+    handler: async (args) => {
+      try {
+        const result = await finishUploadSession(args);
+        return {
+          content: [{ type: 'text', text: `Successfully uploaded "${result.name}" (${result.size} bytes).` }],
+          structuredContent: result
+        };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Unable to complete upload session: ${error.message}` }] };
+      }
+    }
+  },
+  {
+    name: "onedrive-upload-session-abort",
+    description: "Discard a resumable OneDrive upload session and its temporary bytes.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        uploadId: { type: "string", description: "uploadId returned by onedrive-upload-session-start" }
+      },
+      required: ["uploadId"]
+    },
+    handler: async (args) => {
+      try {
+        const result = await abortUploadSession(args);
+        return {
+          content: [{ type: 'text', text: 'Upload session aborted.' }],
+          structuredContent: result
+        };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Unable to abort upload session: ${error.message}` }] };
+      }
+    }
+  },
+  {
     name: "onedrive-import-url",
     description: "Download a file from an approved HTTPS capability URL on the server and upload it to OneDrive without placing its bytes in the MCP request.",
     inputSchema: {
@@ -288,6 +390,10 @@ module.exports = {
   handleExportFile,
   handleUpload,
   handleUploadLarge,
+  startUploadSession,
+  appendUploadSession,
+  finishUploadSession,
+  abortUploadSession,
   handleImportUrl,
   handleShare,
   handleMoveItem,

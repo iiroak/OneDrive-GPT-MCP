@@ -7,8 +7,8 @@ Referencia de las tools definidas en `index.js` y los módulos `auth/`,
 
 | Transporte | Endpoint | Tools |
 |---|---|---:|
-| MCP remoto | `https://mcp.example.com/outlook/mcp` | 46 |
-| MCP stdio/local | `node index.js` | 46 |
+| MCP remoto | `https://mcp.example.com/outlook/mcp` | 50 |
+| MCP stdio/local | `node index.js` | 50 |
 
 El remoto usa el flujo OAuth/PKCE del propio MCP para autorizar al cliente y
 conserva aparte el OAuth delegado de Microsoft Graph.
@@ -487,6 +487,35 @@ está pensada para archivos menores de 4 MiB.
 Acepta los mismos parámetros que `onedrive-upload`: `path`, `content` o
 `contentBase64`, y `conflictBehavior` (`rename`, `replace` o `fail`). Usa
 `contentBase64` para conservar bytes binarios sin convertirlos a UTF-8.
+
+## `onedrive-upload-session-start`
+
+**Scope:** `outlook:write`
+
+Inicia una carga binaria reanudable. Requiere `path` y `totalBytes`, y devuelve
+un `uploadId` y el tamaño máximo recomendado de cada chunk.
+
+## `onedrive-upload-session-chunk`
+
+**Scope:** `outlook:write`
+
+Añade un chunk Base64 estándar. Requiere `uploadId`, `offset` y `chunkBase64`.
+Los chunks deben enviarse en orden y `offset` debe coincidir con
+`bytesReceived` de la respuesta anterior.
+
+## `onedrive-upload-session-complete`
+
+**Scope:** `outlook:write`
+
+Finaliza la sesión y sube el temporal completo a OneDrive. Si faltan bytes, no
+se ejecuta ninguna subida.
+
+## `onedrive-upload-session-abort`
+
+**Scope:** `outlook:write`
+
+Cancela la sesión y elimina sus bytes temporales. Las sesiones abandonadas
+expiran automáticamente.
 
 ## `onedrive-import-url`
 

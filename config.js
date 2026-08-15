@@ -100,6 +100,18 @@ module.exports = {
   // OneDrive constants
   ONEDRIVE_SELECT_FIELDS: 'id,name,size,lastModifiedDateTime,webUrl,folder,file,parentReference',
   ONEDRIVE_UPLOAD_THRESHOLD: 4 * 1024 * 1024, // 4MB - files larger than this need chunked upload
+  ONEDRIVE_UPLOAD_SESSION_CHUNK_BYTES: Number.parseInt(
+    process.env.OUTLOOK_ONEDRIVE_UPLOAD_SESSION_CHUNK_BYTES || `${1024 * 1024}`,
+    10
+  ),
+  ONEDRIVE_UPLOAD_SESSION_MAX_BYTES: Number.parseInt(
+    process.env.OUTLOOK_ONEDRIVE_UPLOAD_SESSION_MAX_BYTES || `${512 * 1024 * 1024}`,
+    10
+  ),
+  ONEDRIVE_UPLOAD_SESSION_TTL_MS: Number.parseInt(
+    process.env.OUTLOOK_ONEDRIVE_UPLOAD_SESSION_TTL_MS || `${15 * 60 * 1000}`,
+    10
+  ),
   ONEDRIVE_IMPORT_ALLOWED_HOSTS: parseHostList(
     process.env.OUTLOOK_ONEDRIVE_IMPORT_ALLOWED_HOSTS,
     publicHostname
