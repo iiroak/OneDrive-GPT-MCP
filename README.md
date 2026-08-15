@@ -60,7 +60,7 @@ npm start
 ├── onedrive/                # Archivos, carpetas y transferencia OneDrive
 ├── utils/                   # Graph API, staging y extracción de documentos
 ├── deploy/                  # Ejemplos de systemd, nginx y MCP Admin
-└── docs/TOOLS.md            # Referencia completa de tools y parámetros
+└── TOOLS.md                 # Referencia completa de tools y parámetros
 ```
 
 ## Configuración local
@@ -88,7 +88,7 @@ Admin. No se deben commitear credenciales, tokens, claves OAuth ni archivos `.en
 ## Tools
 
 La lista completa de tools, parámetros, scopes y efectos está en
-[`docs/TOOLS.md`](docs/TOOLS.md).
+[`TOOLS.md`](TOOLS.md).
 
 Las operaciones remotas se clasifican con estos scopes:
 
