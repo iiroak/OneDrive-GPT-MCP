@@ -9,12 +9,6 @@ const handleExportFile = require('./export-file');
 const handleUpload = require('./upload');
 const handleUploadLarge = require('./upload-large');
 const handleImportUrl = require('./import-url');
-const {
-  startUploadSession,
-  appendUploadSession,
-  finishUploadSession,
-  abortUploadSession
-} = require('./upload-session');
 const handleShare = require('./share');
 const handleMoveItem = require('./move');
 const { handleCreateFolder, handleDeleteItem } = require('./folder');
@@ -133,7 +127,7 @@ const onedriveTools = [
   },
   {
     name: "onedrive-upload",
-    description: "Upload a small file (< 4 MiB) to OneDrive. CHATGPT ATTACHMENT RULE: when the user attached a file, pass the attachment unchanged in the top-level 'file' field. Do not convert it to Base64, do not use a /mnt/data path, and do not call onedrive-import-url or an upload-session tool. Use 'path' for the OneDrive destination; ask for it if the user did not provide one. For an attachment over 4 MiB, use onedrive-upload-large instead.",
+    description: "Legacy upload for UTF-8 text or explicitly supplied Base64 content to OneDrive. This tool is NOT for files attached in ChatGPT. For every ChatGPT attachment, small or large, use onedrive-upload-large with the top-level 'file' field instead. Do not use a /mnt/data path or onedrive-import-url.",
     inputSchema: {
       type: "object",
       properties: {
@@ -149,7 +143,6 @@ const onedriveTools = [
           type: "string",
           description: "Standard Base64-encoded bytes to upload, for binary files such as PDF. Provide this or content, not both."
         },
-        file: CHATGPT_FILE_SCHEMA,
         conflictBehavior: {
           type: "string",
           description: "Behavior when file exists: 'rename' (default), 'replace', or 'fail'",
@@ -157,14 +150,13 @@ const onedriveTools = [
         }
       },
       required: ["path"],
-      anyOf: [{ required: ["content"] }, { required: ["contentBase64"] }, { required: ["file"] }]
+      anyOf: [{ required: ["content"] }, { required: ["contentBase64"] }]
     },
-    meta: { "openai/fileParams": ["file"] },
     handler: handleUpload
   },
   {
     name: "onedrive-upload-large",
-    description: "Upload a large file (> 4 MiB) to OneDrive. THIS IS THE CORRECT TOOL FOR A CHATGPT ATTACHMENT OVER 4 MiB: pass the attachment unchanged in the top-level 'file' field. Do not use content, contentBase64, a /mnt/data path, onedrive-import-url, or onedrive-upload-session-* for a ChatGPT attachment. Use 'path' for the OneDrive destination; ask for it if the user did not provide one. ChatGPT supplies file.download_url and file.file_id automatically.",
+    description: "Upload any file to OneDrive using a reliable upload session. THIS IS THE ONLY CORRECT TOOL FOR A CHATGPT ATTACHMENT, REGARDLESS OF SIZE: pass the attachment unchanged in the top-level 'file' field. NEVER use content or contentBase64, a /mnt/data path, onedrive-import-url, or a manual chunk/session tool for a ChatGPT attachment. Use 'path' for the OneDrive destination; ask for it if the user did not provide one. ChatGPT supplies file.download_url and file.file_id automatically.",
     inputSchema: {
       type: "object",
       properties: {
@@ -192,102 +184,6 @@ const onedriveTools = [
     },
     meta: { "openai/fileParams": ["file"] },
     handler: handleUploadLarge
-  },
-  {
-    name: "onedrive-upload-session-start",
-    description: "Start a resumable binary upload. Send the file in sequential Base64 chunks, then call complete.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        path: { type: "string", description: "Destination path including filename" },
-        totalBytes: { type: "integer", minimum: 1, description: "Exact decoded byte length of the complete file" },
-        conflictBehavior: {
-          type: "string",
-          description: "Behavior when file exists: 'rename' (default), 'replace', or 'fail'",
-          enum: ["rename", "replace", "fail"]
-        }
-      },
-      required: ["path", "totalBytes"]
-    },
-    handler: async (args) => {
-      try {
-        const result = await startUploadSession(args);
-        return {
-          content: [{ type: 'text', text: `Upload session ${result.uploadId} started. Send chunks of at most ${result.chunkBytes} bytes.` }],
-          structuredContent: result
-        };
-      } catch (error) {
-        return { content: [{ type: 'text', text: `Unable to start upload session: ${error.message}` }] };
-      }
-    }
-  },
-  {
-    name: "onedrive-upload-session-chunk",
-    description: "Append one sequential Base64 chunk to a resumable OneDrive upload session.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        uploadId: { type: "string", description: "uploadId returned by onedrive-upload-session-start" },
-        offset: { type: "integer", minimum: 0, description: "Byte offset; must equal bytesReceived from the previous response" },
-        chunkBase64: { type: "string", description: "Standard Base64 bytes for this chunk" }
-      },
-      required: ["uploadId", "offset", "chunkBase64"]
-    },
-    handler: async (args) => {
-      try {
-        const result = await appendUploadSession(args);
-        return {
-          content: [{ type: 'text', text: `Received ${result.bytesReceived}/${result.totalBytes} bytes.` }],
-          structuredContent: result
-        };
-      } catch (error) {
-        return { content: [{ type: 'text', text: `Unable to append upload chunk: ${error.message}` }] };
-      }
-    }
-  },
-  {
-    name: "onedrive-upload-session-complete",
-    description: "Upload a completed resumable file to OneDrive.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        uploadId: { type: "string", description: "uploadId returned by onedrive-upload-session-start" }
-      },
-      required: ["uploadId"]
-    },
-    handler: async (args) => {
-      try {
-        const result = await finishUploadSession(args);
-        return {
-          content: [{ type: 'text', text: `Successfully uploaded "${result.name}" (${result.size} bytes).` }],
-          structuredContent: result
-        };
-      } catch (error) {
-        return { content: [{ type: 'text', text: `Unable to complete upload session: ${error.message}` }] };
-      }
-    }
-  },
-  {
-    name: "onedrive-upload-session-abort",
-    description: "Discard a resumable OneDrive upload session and its temporary bytes.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        uploadId: { type: "string", description: "uploadId returned by onedrive-upload-session-start" }
-      },
-      required: ["uploadId"]
-    },
-    handler: async (args) => {
-      try {
-        const result = await abortUploadSession(args);
-        return {
-          content: [{ type: 'text', text: 'Upload session aborted.' }],
-          structuredContent: result
-        };
-      } catch (error) {
-        return { content: [{ type: 'text', text: `Unable to abort upload session: ${error.message}` }] };
-      }
-    }
   },
   {
     name: "onedrive-import-url",
@@ -418,10 +314,6 @@ module.exports = {
   handleExportFile,
   handleUpload,
   handleUploadLarge,
-  startUploadSession,
-  appendUploadSession,
-  finishUploadSession,
-  abortUploadSession,
   handleImportUrl,
   handleShare,
   handleMoveItem,

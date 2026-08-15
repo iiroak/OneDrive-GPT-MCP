@@ -5,8 +5,6 @@ const config = require('../config');
 const { callGraphAPI } = require('../utils/graph-api');
 const { ensureAuthenticated } = require('../auth');
 const { decodeUploadContent } = require('./upload-content');
-const { withChatGPTFile } = require('./chatgpt-file');
-const fs = require('fs').promises;
 
 /**
  * Simple upload handler (for files < 4MB)
@@ -24,26 +22,6 @@ async function handleUpload(args) {
         text: "Path is required (e.g., '/Documents/myfile.txt')."
       }]
     };
-  }
-
-  if (args.file) {
-    try {
-      return await withChatGPTFile(args.file, async (filePath, downloaded) => {
-        if (downloaded.bytes > config.ONEDRIVE_UPLOAD_THRESHOLD) {
-          return {
-            content: [{
-              type: "text",
-              text: `File is too large for simple upload (${formatSize(downloaded.bytes)}). Use onedrive-upload-large for files over 4MB.`
-            }]
-          };
-        }
-        const contentBuffer = await fs.readFile(filePath);
-        const response = await uploadBuffer(path, contentBuffer, conflictBehavior);
-        return uploadResponse(response);
-      });
-    } catch (error) {
-      return uploadError(error);
-    }
   }
 
   let contentBuffer;

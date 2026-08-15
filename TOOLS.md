@@ -7,8 +7,8 @@ Referencia de las tools definidas en `index.js` y los módulos `auth/`,
 
 | Transporte | Endpoint | Tools |
 |---|---|---:|
-| MCP remoto | `https://mcp.example.com/outlook/mcp` | 50 |
-| MCP stdio/local | `node index.js` | 50 |
+| MCP remoto | `https://mcp.example.com/outlook/mcp` | 46 |
+| MCP stdio/local | `node index.js` | 46 |
 
 El remoto usa el flujo OAuth/PKCE del propio MCP para autorizar al cliente y
 conserva aparte el OAuth delegado de Microsoft Graph.
@@ -387,13 +387,13 @@ Los identificadores son `DriveItem` IDs de Microsoft Graph. Para tools que acept
 
 Cuando el usuario adjunta un archivo en ChatGPT:
 
-1. Usar `onedrive-upload` si el archivo mide menos de 4 MiB; usar
-   `onedrive-upload-large` si mide más de 4 MiB.
+1. Usar siempre `onedrive-upload-large`, independientemente del tamaño del
+   archivo. Esta tool también funciona para archivos pequeños.
 2. Pasar el adjunto en el campo superior `file`, sin modificar el objeto que
    entrega ChatGPT.
 3. Usar `path` como destino de OneDrive y preguntar el destino si falta.
 4. No pedir ni generar Base64, no usar rutas `/mnt/data`, no usar
-   `onedrive-import-url` y no iniciar una sesión manual `onedrive-upload-session-*`.
+   `onedrive-import-url` ni ninguna tool de chunks.
 
 El campo `file` es automático: ChatGPT lo rellena con `download_url` y `file_id`.
 El modelo no debe inventar esos valores ni convertir el archivo a otro formato.
@@ -484,24 +484,26 @@ extracción devuelva `failed`.
 ## `onedrive-upload`
 
 **Scope:** `outlook:write`
-**Efecto:** crea o reemplaza un archivo pequeño en OneDrive. La implementación
-está pensada para archivos menores de 4 MiB.
+**Efecto:** crea o reemplaza un archivo usando texto UTF-8 o Base64 explícito.
+No usar para archivos adjuntos de ChatGPT; esos siempre van por
+`onedrive-upload-large` mediante `file`.
 
 | Parámetro | Tipo | Requerido | Valores |
 |---|---|---:|---|
 | `path` | string | sí | Ruta destino incluyendo nombre. |
-| `content` | string | uno de `content`/`contentBase64`/`file` | Texto UTF-8 que se subirá. |
-| `contentBase64` | string | uno de `content`/`contentBase64`/`file` | Bytes binarios codificados en Base64 estándar, por ejemplo un PDF. |
-| `file` | object | uno de `content`/`contentBase64`/`file` | Archivo seleccionado o subido en ChatGPT; incluye `download_url` y `file_id`. |
+| `content` | string | uno de `content`/`contentBase64` | Texto UTF-8 que se subirá. |
+| `contentBase64` | string | uno de `content`/`contentBase64` | Bytes binarios codificados en Base64 estándar, por ejemplo un PDF. |
 | `conflictBehavior` | string | no | `rename`, `replace` o `fail`; predeterminado `rename`. |
 
 ## `onedrive-upload-large`
 
 **Scope:** `outlook:write`
-**Efecto:** sube un archivo grande usando una upload session y chunks.
+**Efecto:** sube cualquier archivo usando una upload session de Graph. Es la
+única tool válida para adjuntos de ChatGPT, tanto pequeños como grandes.
 
-Acepta los mismos parámetros que `onedrive-upload`: `path`, `content`,
-`contentBase64` o `file`, y `conflictBehavior` (`rename`, `replace` o `fail`).
+Acepta `path`, `file`, `content`, `contentBase64` y `conflictBehavior`
+(`rename`, `replace` o `fail`). Para un adjunto de ChatGPT, usar siempre `file`;
+no usar `content` ni `contentBase64`.
 El campo `file` usa el soporte de ChatGPT para parámetros de archivo y se
 descarga directamente al servidor antes de iniciar la sesión de Graph.
 
@@ -519,35 +521,6 @@ El objeto `file` tiene esta forma:
 La descarga solo permite HTTPS, los hosts `files.oaiusercontent.com`,
 `files.openaiusercontent.com` y `oaisdmnt*.blob.core.windows.net`, redirects
 limitados y el máximo configurado por `OUTLOOK_ONEDRIVE_IMPORT_MAX_BYTES`.
-
-## `onedrive-upload-session-start`
-
-**Scope:** `outlook:write`
-
-Inicia una carga binaria reanudable. Requiere `path` y `totalBytes`, y devuelve
-un `uploadId` y el tamaño máximo recomendado de cada chunk.
-
-## `onedrive-upload-session-chunk`
-
-**Scope:** `outlook:write`
-
-Añade un chunk Base64 estándar. Requiere `uploadId`, `offset` y `chunkBase64`.
-Los chunks deben enviarse en orden y `offset` debe coincidir con
-`bytesReceived` de la respuesta anterior.
-
-## `onedrive-upload-session-complete`
-
-**Scope:** `outlook:write`
-
-Finaliza la sesión y sube el temporal completo a OneDrive. Si faltan bytes, no
-se ejecuta ninguna subida.
-
-## `onedrive-upload-session-abort`
-
-**Scope:** `outlook:write`
-
-Cancela la sesión y elimina sus bytes temporales. Las sesiones abandonadas
-expiran automáticamente.
 
 ## `onedrive-import-url`
 
