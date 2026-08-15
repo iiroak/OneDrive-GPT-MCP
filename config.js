@@ -118,7 +118,7 @@ module.exports = {
   ),
   CHATGPT_FILE_ALLOWED_HOSTS: parseHostList(
     process.env.OUTLOOK_CHATGPT_FILE_ALLOWED_HOSTS,
-    'files.oaiusercontent.com,files.openaiusercontent.com'
+    'files.oaiusercontent.com,files.openaiusercontent.com,oaisdmnt*.blob.core.windows.net'
   ),
   ONEDRIVE_IMPORT_MAX_BYTES: Number.parseInt(
     process.env.OUTLOOK_ONEDRIVE_IMPORT_MAX_BYTES || `${200 * 1024 * 1024}`,

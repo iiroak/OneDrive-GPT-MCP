@@ -501,9 +501,9 @@ El objeto `file` tiene esta forma:
 }
 ```
 
-La descarga solo permite HTTPS, los hosts `files.oaiusercontent.com` y
-`files.openaiusercontent.com`, redirects limitados y el máximo configurado por
-`OUTLOOK_ONEDRIVE_IMPORT_MAX_BYTES`.
+La descarga solo permite HTTPS, los hosts `files.oaiusercontent.com`,
+`files.openaiusercontent.com` y `oaisdmnt*.blob.core.windows.net`, redirects
+limitados y el máximo configurado por `OUTLOOK_ONEDRIVE_IMPORT_MAX_BYTES`.
 
 ## `onedrive-upload-session-start`
 

@@ -13,7 +13,15 @@ function hostAllowed(hostname, patterns) {
   const host = hostname.toLowerCase().replace(/\.+$/, '');
   return patterns.some(pattern => {
     const value = String(pattern).toLowerCase().replace(/\.+$/, '');
-    if (value.startsWith('*.')) return host.endsWith(value.slice(1)) && host !== value.slice(2);
+    if (value.includes('*')) {
+      const wildcard = value.indexOf('*');
+      if (wildcard !== value.lastIndexOf('*')) return false;
+      const prefix = value.slice(0, wildcard);
+      const suffix = value.slice(wildcard + 1);
+      return host.startsWith(prefix)
+        && host.endsWith(suffix)
+        && host.length > prefix.length + suffix.length;
+    }
     return host === value;
   });
 }
