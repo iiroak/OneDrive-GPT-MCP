@@ -43,7 +43,7 @@ async function handleDeleteEvent(args) {
       return {
         content: [{
           type: "text",
-          text: "Authentication required. Please use the 'authenticate' tool first."
+          text: "Authentication required. Complete the MCP OAuth flow first."
         }]
       };
     }

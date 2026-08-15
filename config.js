@@ -58,9 +58,6 @@ module.exports = {
   SERVER_NAME: "m365-assistant",
   SERVER_VERSION: "2.1.0-chatgpt",
   
-  // Test mode setting
-  USE_TEST_MODE: process.env.USE_TEST_MODE === 'true',
-  
   // Authentication configuration
   AUTH_CONFIG: {
     clientId: override('ms_client_id', process.env.MS_CLIENT_ID || process.env.OUTLOOK_CLIENT_ID || ''),
@@ -68,7 +65,6 @@ module.exports = {
     redirectUri: process.env.MS_REDIRECT_URI || `${publicBaseUrl}/microsoft/callback`,
     scopes: String(override('ms_scopes', process.env.MS_SCOPES || 'offline_access openid profile User.Read Mail.ReadWrite Mail.Send MailboxSettings.ReadWrite Calendars.ReadWrite Files.ReadWrite')).split(/\s+/).filter(Boolean),
     tokenStorePath: process.env.MS_TOKEN_STORE_PATH || path.join(dataDir, 'microsoft-tokens.json'),
-    authServerUrl: 'http://localhost:3333'
   },
   MS_TENANT_ID: override('ms_tenant_id', process.env.MS_TENANT_ID || 'consumers'),
   AUTHORITY_URL: (process.env.MS_AUTHORITY_HOST || 'https://login.microsoftonline.com').replace(/\/+$/, ''),
@@ -84,7 +80,6 @@ module.exports = {
   MCP_ACCESS_TOKEN_TTL: Number.parseInt(process.env.OUTLOOK_ACCESS_TOKEN_TTL || '3600', 10),
   MCP_REFRESH_TOKEN_TTL: Number.parseInt(process.env.OUTLOOK_REFRESH_TOKEN_TTL || `${30 * 24 * 3600}`, 10),
   MCP_AUTHORIZATION_TTL: Number.parseInt(process.env.OUTLOOK_AUTHORIZATION_TTL || '600', 10),
-  
   // Microsoft Graph API
   GRAPH_API_ENDPOINT: 'https://graph.microsoft.com/v1.0/',
   
@@ -152,5 +147,4 @@ module.exports = {
     10
   ),
 
-  // Power Automate / Flow constants
 };

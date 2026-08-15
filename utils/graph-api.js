@@ -3,7 +3,6 @@
  */
 const https = require('https');
 const config = require('../config');
-const mockData = require('./mock-data');
 
 function graphBaseUrl() {
   return new URL(config.GRAPH_API_ENDPOINT);
@@ -43,12 +42,6 @@ function buildGraphUrl(path, queryParams = {}) {
  * @returns {Promise<object>} - The API response
  */
 async function callGraphAPI(accessToken, method, path, data = null, queryParams = {}) {
-  // For test tokens, we'll simulate the API call
-  if (config.USE_TEST_MODE && accessToken.startsWith('test_access_token_')) {
-    console.error(`TEST MODE: Simulating ${method} ${path} API call`);
-    return mockData.simulateGraphAPIResponse(method, path, data, queryParams);
-  }
-
   try {
     console.error(`Making real API call: ${method} ${path}`);
     
@@ -181,12 +174,6 @@ async function callGraphAPIPaginated(accessToken, method, path, queryParams = {}
  * @returns {Promise<string>} - The download URL from the redirect
  */
 async function callGraphAPIDownload(accessToken, path) {
-  // For test tokens, simulate download
-  if (config.USE_TEST_MODE && accessToken.startsWith('test_access_token_')) {
-    console.error(`TEST MODE: Simulating download for ${path}`);
-    return `https://example.com/download/${Date.now()}`;
-  }
-
   return new Promise((resolve, reject) => {
     const fullUrl = buildGraphUrl(path);
     console.error(`Making download request: GET ${fullUrl}`);

@@ -2,7 +2,6 @@
  * Authentication-related tools for the Outlook MCP server
  */
 const config = require('../config');
-const tokenManager = require('./token-manager');
 const tokenStorage = require('./token-storage-instance');
 
 /**
@@ -16,48 +15,15 @@ async function handleAbout() {
     description: 'Access to Outlook mail, calendar, folders, inbox rules, and OneDrive through Microsoft Graph.',
     services: ['Outlook', 'OneDrive'],
     authentication: 'Microsoft Graph delegated OAuth',
-    remote_transport: 'Streamable HTTP',
-    power_automate_exposed: false
+    remote_transport: 'Streamable HTTP'
   };
 
   return {
     content: [{
       type: "text",
-      text: `Outlook MCP Server v${about.version}\n\n${about.description}\n\nPower Automate is intentionally not exposed by this ChatGPT fork.`
+      text: `Outlook MCP Server v${about.version}\n\n${about.description}`
     }],
     structuredContent: about
-  };
-}
-
-/**
- * Authentication tool handler
- * @param {object} args - Tool arguments
- * @returns {object} - MCP response
- */
-async function handleAuthenticate(args) {
-  const force = args && args.force === true;
-  
-  // For test mode, create a test token
-  if (config.USE_TEST_MODE) {
-    // Create a test token with a 1-hour expiry
-    tokenManager.createTestTokens();
-    
-    return {
-      content: [{
-        type: "text",
-        text: 'Successfully authenticated with Microsoft Graph API (test mode)'
-      }]
-    };
-  }
-  
-  // For real authentication, generate an auth URL and instruct the user to visit it
-  const authUrl = `${config.AUTH_CONFIG.authServerUrl}/auth?client_id=${config.AUTH_CONFIG.clientId}`;
-  
-  return {
-    content: [{
-      type: "text",
-      text: `Authentication required. Please visit the following URL to authenticate with Microsoft: ${authUrl}\n\nAfter authentication, you will be redirected back to this application.`
-    }]
   };
 }
 
@@ -101,21 +67,6 @@ const authTools = [
     handler: handleAbout
   },
   {
-    name: "authenticate",
-    description: "Authenticate with Microsoft Graph API to access Outlook data",
-    inputSchema: {
-      type: "object",
-      properties: {
-        force: {
-          type: "boolean",
-          description: "Force re-authentication even if already authenticated"
-        }
-      },
-      required: []
-    },
-    handler: handleAuthenticate
-  },
-  {
     name: "check-auth-status",
     description: "Check the current authentication status with Microsoft Graph API",
     inputSchema: {
@@ -130,6 +81,5 @@ const authTools = [
 module.exports = {
   authTools,
   handleAbout,
-  handleAuthenticate,
   handleCheckAuthStatus
 };

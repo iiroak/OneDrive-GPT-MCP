@@ -40,7 +40,7 @@ async function handleDeleteEmail(args = {}) {
   } catch (error) {
     if (error.message === 'Authentication required' || error.message === 'UNAUTHORIZED') {
       return {
-        content: [{ type: "text", text: "Authentication required. Please use the 'authenticate' tool first." }]
+        content: [{ type: "text", text: "Authentication required. Complete the MCP OAuth flow first." }]
       };
     }
     return {

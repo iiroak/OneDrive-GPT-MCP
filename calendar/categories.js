@@ -3,7 +3,7 @@ const { ensureAuthenticated } = require('../auth');
 const { masterCategoryPath } = require('./paths');
 
 function errorResponse(action, error) {
-  if (error.message === 'Authentication required') return { content: [{ type: 'text', text: "Authentication required. Please use the 'authenticate' tool first." }] };
+  if (error.message === 'Authentication required') return { content: [{ type: 'text', text: "Authentication required. Complete the MCP OAuth flow first." }] };
   return { content: [{ type: 'text', text: `Error ${action}: ${error.message}` }] };
 }
 

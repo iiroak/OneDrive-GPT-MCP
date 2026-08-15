@@ -308,7 +308,7 @@ function decodeHtmlEntities(text) {
 
 /**
  * Wrap email content with clear boundary markers
- * This helps Claude distinguish email content from instructions
+ * This helps the MCP client distinguish email content from instructions
  *
  * @param {string} content - Sanitized email content
  * @param {object} metadata - Email metadata (subject, from, etc.)

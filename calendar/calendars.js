@@ -88,7 +88,7 @@ function message(text) {
 }
 
 function errorResponse(action, error) {
-  if (error.message === 'Authentication required') return message("Authentication required. Please use the 'authenticate' tool first.");
+  if (error.message === 'Authentication required') return message("Authentication required. Complete the MCP OAuth flow first.");
   return message(`Error ${action}: ${error.message}`);
 }
 

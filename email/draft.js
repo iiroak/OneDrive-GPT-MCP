@@ -64,7 +64,7 @@ async function handleDraftEmail(args) {
       return {
         content: [{
           type: "text",
-          text: "Authentication required. Please use the 'authenticate' tool first."
+          text: "Authentication required. Complete the MCP OAuth flow first."
         }]
       };
     }
@@ -73,7 +73,7 @@ async function handleDraftEmail(args) {
       return {
         content: [{
           type: "text",
-          text: "Draft creation was denied by Microsoft Graph (403). The token likely lacks Mail.ReadWrite scope. Re-authenticate with force=true to refresh consent, then try again."
+          text: "Draft creation was denied by Microsoft Graph (403). The token likely lacks Mail.ReadWrite scope. Complete the MCP OAuth flow again to refresh consent, then try again."
         }]
       };
     }

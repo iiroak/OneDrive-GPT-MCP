@@ -11,7 +11,7 @@ class TokenStorage {
     const tenantId = process.env.MS_TENANT_ID || baseConfig.MS_TENANT_ID || 'consumers';
     const authorityHost = (process.env.MS_AUTHORITY_HOST || 'https://login.microsoftonline.com').replace(/\/+$/, '');
 
-    // Support both MS_CLIENT_ID (auth server / .env) and OUTLOOK_CLIENT_ID (Claude Desktop config)
+    // Support both the current and legacy environment variable names.
     const clientId = process.env.MS_CLIENT_ID || process.env.OUTLOOK_CLIENT_ID;
     const clientSecret = process.env.MS_CLIENT_SECRET || process.env.OUTLOOK_CLIENT_SECRET;
 

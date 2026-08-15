@@ -1,4 +1,4 @@
-# M365 Assistant MCP: Tools
+# OneDrive-GPT-MCP: Tools
 
 Referencia de las tools definidas en `index.js` y los módulos `auth/`,
 `calendar/`, `email/`, `folder/`, `rules/` y `onedrive/`.
@@ -8,14 +8,10 @@ Referencia de las tools definidas en `index.js` y los módulos `auth/`,
 | Transporte | Endpoint | Tools |
 |---|---|---:|
 | MCP remoto | `https://mcp.iroak.dev/outlook/mcp` | 46 |
-| MCP stdio/local | `node index.js` | 47 |
+| MCP stdio/local | `node index.js` | 46 |
 
-La única tool que no se expone en el MCP remoto es `authenticate`. El remoto usa
-el flujo OAuth/PKCE del propio MCP para autorizar al cliente y conserva aparte el
-OAuth delegado de Microsoft Graph.
-
-Power Automate permanece en el repositorio como módulo heredado, pero no está
-registrado en `TOOLS` y no se expone en el MCP remoto.
+El remoto usa el flujo OAuth/PKCE del propio MCP para autorizar al cliente y
+conserva aparte el OAuth delegado de Microsoft Graph.
 
 ## Scopes
 
@@ -54,18 +50,6 @@ Los argumentos indicados como `required` deben enviarse. El resto son opcionales
 **Efecto:** ninguno. Devuelve nombre, versión, servicios y transporte.
 
 **Parámetros:** ninguno.
-
-## `authenticate`
-
-**Scope:** `outlook:read`
-**Remote:** no, solo stdio/local
-**Efecto:** inicia o fuerza el flujo de autenticación Microsoft Graph.
-
-| Parámetro | Tipo | Requerido | Descripción |
-|---|---|---:|---|
-| `force` | boolean | no | Fuerza una reautenticación aunque haya tokens existentes. |
-
-En el servidor remoto se debe usar el flujo OAuth del MCP, no esta tool.
 
 ## `check-auth-status`
 

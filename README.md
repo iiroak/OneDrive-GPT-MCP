@@ -1,341 +1,139 @@
-[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/ryaker-outlook-mcp-badge.png)](https://mseep.ai/app/ryaker-outlook-mcp)
+# OneDrive-GPT-MCP
 
-# M365 Assistant MCP Server
+Servidor MCP para ChatGPT que conecta Outlook y OneDrive con Microsoft Graph.
+Expone transporte Streamable HTTP con OAuth para clientes remotos y transporte
+stdio para desarrollo local.
 
-This fork exposes a Streamable HTTP MCP endpoint for ChatGPT at
-`https://mcp.iroak.dev/outlook/mcp`. Its administrative adapter follows the
-`iroak.mcp-admin/v1` contract used by the MCP Admin panel.
+El nombre del proyecto es branding: el servidor mantiene tanto las funciones de
+Outlook como las de OneDrive.
 
-The remote service provides Outlook and OneDrive through Microsoft Graph with
-delegated OAuth. The repository also retains Power Automate modules for legacy
-or local use, but they are not registered in the remote ChatGPT tool set.
+## Funcionalidades
 
-## Supported Services
+- Correo: listar, buscar, leer, redactar, enviar, marcar y mover mensajes.
+- Calendario: calendarios, eventos, categorías, invitaciones y migraciones.
+- Carpetas y reglas: listar, crear, mover mensajes y administrar reglas.
+- OneDrive: listar, buscar, leer, descargar, subir, exportar, compartir y mover
+  archivos y carpetas.
+- OAuth remoto MCP/PKCE y OAuth delegado de Microsoft Graph.
+- Transferencia segura de archivos mediante recursos MCP temporales.
+- Annotations y scopes separados para operaciones de lectura, escritura y
+  destructivas.
 
-- **Outlook** - Email, calendar, folders, and rules
-- **OneDrive** - Files, folders, search, and sharing
+## Transporte
 
-## Directory Structure
+El servidor remoto utiliza Streamable HTTP:
 
-```
-├── index.js                 # Main entry point
-├── config.js                # Configuration settings
-├── auth/                    # Authentication modules
-│   ├── index.js             # Authentication exports
-│   ├── token-manager.js     # Legacy token storage and refresh
-│   └── tools.js             # Auth-related tools
-├── calendar/                # Calendar functionality
-│   ├── index.js             # Calendar exports
-│   ├── list.js              # List events
-│   ├── create.js            # Create event
-│   ├── calendars.js         # Calendar container CRUD
-│   ├── get.js               # Read a complete event
-│   ├── copy.js              # Copy an event without deleting the source
-│   ├── migrate.js           # Copy, verify, and remove source events
-│   ├── categories.js        # Master category mutations
-│   ├── paths.js             # Encoded Graph calendar paths
-│   ├── event-payload.js     # Event payload normalization
-│   ├── update.js            # Update event fields and categories
-│   ├── master-categories.js # List Outlook master categories
-│   ├── delete.js            # Delete event
-│   ├── cancel.js            # Cancel event
-│   ├── accept.js            # Accept event
-│   └── decline.js           # Decline event
-├── email/                   # Email functionality
-│   ├── index.js             # Email exports
-│   ├── list.js              # List emails
-│   ├── search.js            # Search emails
-│   ├── read.js              # Read email
-│   ├── send.js              # Send email
-│   └── mark-as-read.js      # Mark email read/unread
-├── folder/                  # Folder functionality
-│   ├── index.js             # Folder exports
-│   ├── list.js              # List folders
-│   ├── create.js            # Create folder
-│   └── move.js              # Move emails
-├── rules/                   # Email rules functionality
-│   ├── index.js             # Rules exports
-│   ├── list.js              # List rules
-│   └── create.js            # Create rule
-├── onedrive/                # OneDrive functionality
-│   ├── index.js             # OneDrive exports
-│   ├── list.js              # List files/folders
-│   ├── search.js            # Search files
-│   ├── download.js          # Get download URL
-│   ├── fetch-content.js     # Stage OneDrive bytes locally
-│   ├── read-file.js         # Extract file content as text
-│   ├── export-file.js       # Return raw bytes as an MCP resource
-│   ├── capability.js        # Short-lived server-side download capabilities
-│   ├── import-url.js        # Stream a capability URL into OneDrive
-│   ├── upload-file.js       # File-path based Graph upload session
-│   ├── upload.js            # Simple upload (<4MB)
-│   ├── upload-large.js      # Chunked upload (>4MB)
-│   ├── share.js             # Create sharing link
-│   └── folder.js            # Create/delete folders
-├── power-automate/          # Retained Power Automate modules (not remote)
-│   ├── index.js             # Power Automate exports
-│   ├── flow-api.js          # Flow API client
-│   ├── list-environments.js # List environments
-│   ├── list-flows.js        # List flows
-│   ├── run-flow.js          # Trigger flow
-│   ├── list-runs.js         # Run history
-│   └── toggle-flow.js       # Enable/disable flow
-└── utils/                   # Utility functions
-    ├── graph-api.js         # Microsoft Graph API helper
-    ├── binary-fetch.js      # Bounded HTTPS redirect/download handling
-    ├── document-text.js     # PDF, OOXML, HTML and text extraction
-    ├── file-store.js        # Opaque, expiring local file handles
-    ├── zip-reader.js        # Minimal OOXML ZIP reader
-    ├── odata-helpers.js     # OData query building
-    └── mock-data.js         # Test mode data
+```text
+https://mcp.iroak.dev/outlook/mcp
 ```
 
-## Features
+El endpoint público y la ruta `/outlook` forman parte de la configuración actual
+de producción. Los ejemplos de `deploy/` documentan el servicio systemd, nginx y
+el adaptador de administración MCP.
 
-- **Authentication**: Microsoft OAuth for Graph and OAuth/PKCE for the remote MCP client
-- **Email Management**: List, search, read, send, and organize emails
-- **Calendar Management**: Calendar CRUD, event CRUD, copy/migrate, categories, accept, decline, and delete
-- **OneDrive Integration**: List, search, upload, download, read, export, and share files
-- **Modular Structure**: Clean separation of concerns for maintainability
-- **Test Mode**: Simulated responses for testing without real API calls
-
-## Available Tools
-
-### Structured output
-
-Every exposed tool publishes an `outputSchema` and returns both the existing
-human-readable `content` text and machine-readable `structuredContent`:
-
-```json
-{
-  "message": "Human-readable result of the tool call.",
-  "data": {}
-}
-```
-
-`message` is always present. `data` is optional and is populated when a tool
-already has an additional structured payload, such as `about`. This preserves
-the existing text response while giving clients a stable envelope for every
-tool. Clients should use the declared `outputSchema` rather than infer a
-schema from the text response.
-
-### Outlook (Email & Calendar)
-| Tool | Description |
-|------|-------------|
-| `list-emails` | List recent emails from inbox |
-| `search-emails` | Search emails with filters |
-| `read-email` | Read email content |
-| `send-email` | Send a new email |
-| `mark-as-read` | Mark email as read/unread |
-| `list-events` | List calendar events |
-| `list-calendars` | List Outlook calendars |
-| `create-calendar` | Create a blank Outlook calendar |
-| `update-calendar` | Rename or recolor a calendar |
-| `delete-calendar` | Delete a non-default calendar |
-| `get-event` | Read a complete event |
-| `create-event` | Create calendar event |
-| `update-event` | Update an existing event, including its categories |
-| `copy-event` | Copy an event to another calendar without deleting the source |
-| `migrate-events` | Copy, verify, and delete source events with explicit confirmation |
-| `list-master-categories` | List Outlook category names and colors |
-| `create-master-category` | Create an Outlook master category |
-| `update-master-category` | Change a master category color |
-| `delete-master-category` | Delete an Outlook master category |
-| `accept-event` | Accept event invitation |
-| `decline-event` | Decline event invitation |
-| `delete-event` | Delete calendar event |
-| `list-folders` | List mail folders |
-| `create-folder` | Create mail folder |
-| `move-emails` | Move emails between folders |
-| `list-rules` | List inbox rules |
-| `create-rule` | Create inbox rule |
-
-### OneDrive
-| Tool | Description |
-|------|-------------|
-| `onedrive-list` | List files in a path |
-| `onedrive-search` | Search files by query |
-| `onedrive-download` | Resolve a short-lived URL for another server to consume |
-| `onedrive-read-file` | Download and return file content as text |
-| `onedrive-export-file` | Transfer raw file bytes as an embedded MCP resource |
-| `onedrive-upload` | Upload small file (<4MB) |
-| `onedrive-upload-large` | Chunked upload (>4MB) |
-| `onedrive-import-url` | Server-side import of an approved HTTPS capability URL |
-| `onedrive-share` | Create sharing link |
-| `onedrive-create-folder` | Create folder |
-| `onedrive-delete` | Delete file or folder |
-
-### OneDrive File Transfer
-
-`onedrive-download` only resolves a short-lived capability URL. It does not make
-the bytes available to the model. For content consumption, use
-`onedrive-read-file` with `itemId` or `path`; the server fetches the bytes and
-returns extracted text directly in `structuredContent.data.text`. It supports
-plain text, Markdown, HTML, PDF, DOCX, PPTX, and XLSX. Check `status`: `complete`
-means all meaningful content was extracted, `partial` means images/charts/scanned
-content are not represented in the text, and `failed` means use
-`onedrive-export-file` instead.
-
-`onedrive-export-file` is the raw-byte fallback for images, audio, archives, and
-unsupported documents. It returns an MCP `EmbeddedResource`; binary payloads are
-Base64-encoded and capped by `OUTLOOK_FILE_INLINE_MAX_BYTES` (8 MiB by default).
-
-Both tools stage bytes under an opaque `file_id` in a private directory and return
-a `m365-file:///<file_id>` resource URI. Clients supporting MCP resources can use
-`resources/read` to redeem that URI without downloading from OneDrive again. The
-handle is short-lived and process-local by design.
-
-Downloads are HTTPS-only, follow redirects manually against an explicit host
-allowlist, enforce per-file and aggregate byte limits, verify the SHA-256 digest,
-and drop the Graph `Authorization` header when crossing to a CDN host.
-
-## Quick Start
-
-1. **Install dependencies**: `npm install`
-2. **Azure setup**: Register app in Azure Portal (see detailed steps below)
-3. **Configure environment**: Copy `.env.example` to `.env` and add your Azure credentials
-4. **Run locally**: Use `npm start:http` for the remote-compatible HTTP server or `npm start` for `stdio`
-5. **Authenticate**: Use the remote OAuth flow or the local authentication tool, depending on the transport
-
-## Installation
-
-### Prerequisites
-- Node.js 14.0.0 or higher
-- npm or yarn package manager
-- Azure account for app registration
-
-### Install Dependencies
+Para ejecutar localmente:
 
 ```bash
 npm install
+npm run start:http
 ```
 
-## Azure App Registration & Configuration
+El servidor stdio está disponible con:
 
-### App Registration
+```bash
+npm start
+```
 
-1. Open [Azure Portal](https://portal.azure.com/)
-2. Search for "App registrations"
-3. Click "New registration"
-4. Name: "M365 MCP Server"
-5. Account type: "Accounts in any organizational directory and personal Microsoft accounts"
-6. Redirect URI: Web -> `https://mcp.iroak.dev/outlook/microsoft/callback` for the deployed remote service
-7. Click "Register"
-8. Copy the "Application (client) ID" for your `.env` file
+## Estructura
 
-### App Permissions
+```text
+├── index.js                 # Registro de tools y servidor MCP stdio
+├── server.js                # Transporte HTTP, OAuth remoto y health endpoint
+├── admin.js                 # Adaptador de administración del servicio
+├── config.js                # Configuración de Graph, OAuth y archivos
+├── AGENTS.md                # Guía operativa para cambios en el repositorio
+├── auth/                    # OAuth MCP y almacenamiento de tokens Graph
+├── calendar/                # Calendarios y eventos de Outlook
+├── email/                   # Operaciones de correo
+├── folder/                  # Carpetas y movimiento de mensajes
+├── rules/                   # Reglas de bandeja de entrada
+├── onedrive/                # Archivos, carpetas y transferencia OneDrive
+├── utils/                   # Graph API, staging y extracción de documentos
+├── deploy/                  # Ejemplos de systemd, nginx y MCP Admin
+└── docs/TOOLS.md            # Referencia completa de tools y parámetros
+```
 
-1. Go to "API permissions" under Manage
-2. Click "Add a permission" → "Microsoft Graph" → "Delegated permissions"
-3. Add these permissions:
-   - `offline_access`
-   - `User.Read`
-   - `Mail.Read`, `Mail.ReadWrite`, `Mail.Send`
-    - `Calendars.Read`, `Calendars.ReadWrite`
-    - `MailboxSettings.Read`, `MailboxSettings.ReadWrite`
-   - `Files.Read`, `Files.ReadWrite`
-4. Click "Add permissions"
-
-### Client Secret
-
-1. Go to "Certificates & secrets" → "Client secrets"
-2. Click "New client secret"
-3. Add description and select expiration
-4. **Copy the VALUE** (not the Secret ID)
-
-## Configuration
-
-### 1. Environment Variables
+## Configuración local
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env`:
-```bash
-# Get these values from Azure Portal > App Registrations > Your App
-MS_CLIENT_ID=your-application-client-id-here
-MS_CLIENT_SECRET=your-client-secret-VALUE-here
-# Use "consumers" for a personal Microsoft account.
-MS_TENANT_ID=consumers
-USE_TEST_MODE=false
-```
+Configura las credenciales de una aplicación Microsoft Entra registrada para
+Microsoft Graph. El secreto debe ser el **valor** del secreto, no su identificador.
 
-**Important Notes:**
-- Use `MS_CLIENT_ID` and `MS_CLIENT_SECRET` in the `.env` file
-- The deployed service is configured through the MCP Admin panel; its secrets are not committed to this repository.
-- Always use the client secret **VALUE**, never the Secret ID
+Permisos delegados principales:
 
-### 2. Local stdio Configuration
+- `offline_access`
+- `User.Read`
+- `Mail.ReadWrite`
+- `Mail.Send`
+- `MailboxSettings.ReadWrite`
+- `Calendars.ReadWrite`
+- `Files.ReadWrite`
 
-For a local MCP client, configure the stdio entry point directly:
+La configuración de producción se almacena fuera del repositorio mediante MCP
+Admin. No se deben commitear credenciales, tokens, claves OAuth ni archivos `.env`.
 
-```json
-{
-  "mcpServers": {
-    "m365-assistant": {
-      "command": "node",
-      "args": ["/path/to/outlook-mcp/index.js"],
-      "env": {
-        "USE_TEST_MODE": "false",
-        "MS_CLIENT_ID": "your-client-id",
-        "MS_CLIENT_SECRET": "your-client-secret"
-      }
-    }
-  }
-}
-```
+## Tools
 
-## Authentication
+La lista completa de tools, parámetros, scopes y efectos está en
+[`docs/TOOLS.md`](docs/TOOLS.md).
 
-### Graph API (Outlook + OneDrive)
+Las operaciones remotas se clasifican con estos scopes:
 
-For the deployed endpoint, open the MCP Admin panel at
-`https://mcp.iroak.dev/admin`, configure the Microsoft application, and use the
-remote consent flow from ChatGPT. Microsoft tokens are stored in the configured
-service data directory and are never returned by the admin API.
+| Scope | Uso |
+|---|---|
+| `outlook:read` | Lecturas de Outlook, calendario, reglas y OneDrive |
+| `outlook:write` | Crear, editar, mover, subir o compartir |
+| `outlook:destructive` | Borrado o acciones explícitamente destructivas |
 
-For local `stdio` development, the `authenticate` tool can start the local OAuth
-flow. The legacy auth server is available with `npm run auth-server` when that
-local workflow is required.
+Las tools de escritura y destrucción incluyen annotations MCP para que el cliente
+pueda solicitar confirmación antes de cambiar o borrar datos.
 
-## Troubleshooting
+## Transferencia De Archivos
 
-### Common Issues
+`onedrive-read-file` extrae texto de archivos compatibles como texto plano,
+Markdown, HTML, PDF, DOCX, PPTX y XLSX.
 
-**"Cannot find module"**
+`onedrive-export-file` permite transferir bytes sin interpretar para imágenes,
+audio, archivos comprimidos y documentos no compatibles.
+
+Los archivos se guardan temporalmente con identificadores opacos y se exponen como
+recursos `m365-file:///...`. Los clientes MCP compatibles pueden leerlos mediante
+`resources/read`. Las descargas requieren HTTPS, allowlist de hosts, límites de
+tamaño y verificación SHA-256.
+
+## Desarrollo
+
+Comandos disponibles:
+
 ```bash
 npm install
-```
-
-**"Port 3333 in use"**
-```bash
-npx kill-port 3333
-npm run auth-server
-```
-
-**"Invalid client secret" (AADSTS7000215)**
-- Use the secret **VALUE**, not the Secret ID
-
-**"Authentication required"**
-- Re-authenticate through the remote consent flow or remove the local token store configured by `MS_TOKEN_STORE_PATH`.
-
-## Testing
-
-```bash
-# Run with MCP Inspector
+npm start
+npm run start:http
 npm run inspect
-
-# Run in test mode (mock data)
-npm run test-mode
-
-# Run Jest tests
-npm test
 ```
 
-## Extending the Server
+Este despliegue independiente no incluye una suite automatizada. La verificación
+mínima consiste en cargar `index.js` y `server.js`, iniciar el servidor HTTP y
+comprobar `/health`.
 
-1. Create new module directory
-2. Implement tool handlers in separate files
-3. Export tool definitions from module index
-4. Import and add to `TOOLS` array in `index.js`
+## Agradecimientos
+
+Este proyecto comenzó a partir de [ryaker/outlook-mcp](https://github.com/ryaker/outlook-mcp).
+Se conserva la atribución correspondiente en el historial y en la licencia MIT.
+
+## Licencia
+
+MIT. Consulta [`LICENSE`](LICENSE).

@@ -19,7 +19,7 @@ async function handleUpdateEvent(args = {}) {
       structuredContent: { eventId: args.eventId, updatedFields: Object.keys(body), ...(body.categories ? { categories: body.categories } : {}) }
     };
   } catch (error) {
-    if (error.message === 'Authentication required') return { content: [{ type: 'text', text: "Authentication required. Please use the 'authenticate' tool first." }] };
+    if (error.message === 'Authentication required') return { content: [{ type: 'text', text: "Authentication required. Complete the MCP OAuth flow first." }] };
     return { content: [{ type: 'text', text: `Error updating event: ${error.message}` }] };
   }
 }

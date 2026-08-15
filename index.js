@@ -3,8 +3,8 @@
  * M365 Assistant MCP Server - Main entry point
  *
  * A Model Context Protocol server that provides access to
- * Microsoft 365 services (Outlook, OneDrive, Power Automate)
- * through the Microsoft Graph API and Flow API.
+ * Microsoft 365 services (Outlook and OneDrive)
+ * through the Microsoft Graph API.
  */
 const { Server } = require("@modelcontextprotocol/sdk/server/index.js");
 const { StdioServerTransport } = require("@modelcontextprotocol/sdk/server/stdio.js");
@@ -29,7 +29,6 @@ const TOOLS = [
   ...onedriveTools
 ];
 
-const REMOTE_EXCLUDED_TOOLS = new Set(['authenticate']);
 const WRITE_TOOLS = new Set([
   'draft-email', 'send-email', 'mark-as-read', 'trash-email', 'permanently-delete-email',
   'accept-event', 'decline-event', 'create-event', 'update-event', 'cancel-event', 'delete-event',
@@ -61,7 +60,7 @@ function requiredScope(toolName) {
 }
 
 function visibleTools(remote) {
-  return remote ? TOOLS.filter(tool => !REMOTE_EXCLUDED_TOOLS.has(tool.name)) : TOOLS;
+  return TOOLS;
 }
 
 function createMcpServer({ remote = false, scopes = ['outlook:read', 'outlook:write', 'outlook:destructive'] } = {}) {
@@ -170,7 +169,6 @@ function createMcpServer({ remote = false, scopes = ['outlook:read', 'outlook:wr
 
 async function startStdio() {
   console.error(`STARTING ${config.SERVER_NAME.toUpperCase()} MCP SERVER`);
-  console.error(`Test mode is ${config.USE_TEST_MODE ? 'enabled' : 'disabled'}`);
   const server = createMcpServer();
   await server.connect(new StdioServerTransport());
   console.error(`${config.SERVER_NAME} connected and listening`);
