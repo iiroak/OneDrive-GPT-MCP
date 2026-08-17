@@ -519,8 +519,10 @@ El objeto `file` tiene esta forma:
 ```
 
 La descarga solo permite HTTPS, los hosts `files.oaiusercontent.com`,
-`files.openaiusercontent.com` y `oaisdmnt*.blob.core.windows.net`, redirects
-limitados y el máximo configurado por `OUTLOOK_ONEDRIVE_IMPORT_MAX_BYTES`.
+`files.openaiusercontent.com`, `oaisdmnt*.blob.core.windows.net`,
+`mcp.iroak.dev` y `sdmntpr*.oaiusercontent.com`, redirects limitados y el máximo
+configurado por `OUTLOOK_ONEDRIVE_IMPORT_MAX_BYTES`. La lista se puede ajustar
+con `OUTLOOK_CHATGPT_FILE_ALLOWED_HOSTS`.
 
 ## `onedrive-import-url`
 
