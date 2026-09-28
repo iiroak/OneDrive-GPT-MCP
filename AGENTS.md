@@ -8,10 +8,10 @@ Microsoft Graph.
 
 ## Commands
 
-- `npm install` - Install dependencies
-- `npm run start:http` - Start the Streamable HTTP server
-- `npm start` - Start the local stdio MCP server
-- `npm run inspect` - Inspect the stdio server with MCP Inspector
+- `pnpm install` - Install dependencies
+- `pnpm run start:http` - Start the Streamable HTTP server
+- `pnpm start` - Start the local stdio MCP server
+- `pnpm run inspect` - Inspect the stdio server with MCP Inspector
 
 ## Architecture
 

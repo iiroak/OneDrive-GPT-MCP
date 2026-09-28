@@ -34,14 +34,14 @@ mantiene en la documentación privada de infraestructura del operador.
 Para ejecutar localmente:
 
 ```bash
-npm install
-npm run start:http
+pnpm install
+pnpm run start:http
 ```
 
 El servidor stdio está disponible con:
 
 ```bash
-npm start
+pnpm start
 ```
 
 ## Estructura
@@ -119,10 +119,10 @@ tamaño y verificación SHA-256.
 Comandos disponibles:
 
 ```bash
-npm install
-npm start
-npm run start:http
-npm run inspect
+pnpm install
+pnpm start
+pnpm run start:http
+pnpm run inspect
 ```
 
 Este despliegue independiente no incluye una suite automatizada. La verificación
