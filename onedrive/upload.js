@@ -3,6 +3,7 @@
  */
 const config = require('../config');
 const { callGraphAPI } = require('../utils/graph-api');
+const { encodePath } = require('../utils/onedrive-resolve');
 const { ensureAuthenticated } = require('../auth');
 const { decodeUploadContent } = require('./upload-content');
 
@@ -51,7 +52,7 @@ async function handleUpload(args) {
 
 async function uploadBuffer(path, contentBuffer, conflictBehavior) {
   const accessToken = await ensureAuthenticated();
-  const normalizedPath = path.replace(/^\/+|\/+$/g, '');
+  const normalizedPath = encodePath(path);
   const endpoint = `me/drive/root:/${normalizedPath}:/content`;
   const queryParams = {
     '@microsoft.graph.conflictBehavior': conflictBehavior

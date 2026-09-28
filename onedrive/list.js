@@ -3,6 +3,7 @@
  */
 const config = require('../config');
 const { callGraphAPI } = require('../utils/graph-api');
+const { encodePath } = require('../utils/onedrive-resolve');
 const { ensureAuthenticated } = require('../auth');
 
 /**
@@ -12,35 +13,43 @@ const { ensureAuthenticated } = require('../auth');
  */
 async function handleListFiles(args) {
   const path = args.path || '';
-  const count = args.count || 25;
+  const requestedCount = Number(args.count);
+  const count = args.count === undefined || args.count === null || !Number.isFinite(requestedCount)
+    ? 25
+    : Math.max(1, Math.min(50, Math.floor(requestedCount)));
+  const cursor = args.cursor;
 
   try {
     const accessToken = await ensureAuthenticated();
 
-    // Build endpoint - root or specific path
-    let endpoint;
-    if (!path || path === '/' || path === 'root') {
-      endpoint = 'me/drive/root/children';
+    let response;
+    if (cursor) {
+      response = await callGraphAPI(accessToken, 'GET', cursor);
     } else {
-      // Normalize path - remove leading/trailing slashes
-      const normalizedPath = path.replace(/^\/+|\/+$/g, '');
-      endpoint = `me/drive/root:/${normalizedPath}:/children`;
+      // Build endpoint - root or specific path
+      let endpoint;
+      if (!path || path === '/' || path === 'root') {
+        endpoint = 'me/drive/root/children';
+      } else {
+        endpoint = `me/drive/root:/${encodePath(path)}:/children`;
+      }
+
+      const queryParams = {
+        $top: Math.min(50, count),
+        $select: config.ONEDRIVE_SELECT_FIELDS,
+        $orderby: 'name'
+      };
+
+      response = await callGraphAPI(accessToken, 'GET', endpoint, null, queryParams);
     }
-
-    const queryParams = {
-      $top: Math.min(50, count),
-      $select: config.ONEDRIVE_SELECT_FIELDS,
-      $orderby: 'name'
-    };
-
-    const response = await callGraphAPI(accessToken, 'GET', endpoint, null, queryParams);
 
     if (!response.value || response.value.length === 0) {
       return {
         content: [{
           type: "text",
-          text: `No files found in ${path || 'root'}.`
-        }]
+          text: cursor ? "No more items." : `No files found in ${path || 'root'}.`
+        }],
+        structuredContent: { items: [], nextCursor: null }
       };
     }
 
@@ -53,11 +62,23 @@ async function handleListFiles(args) {
       return `${index + 1}. ${isFolder} ${item.name}${size ? ` (${size})` : ''}\n   Modified: ${modified}\n   ID: ${item.id}`;
     }).join("\n\n");
 
+    const nextLink = response['@odata.nextLink'] || null;
+
     return {
       content: [{
         type: "text",
-        text: `Found ${response.value.length} items in ${path || 'root'}:\n\n${fileList}`
-      }]
+        text: `Found ${response.value.length} item(s) in ${path || 'root'}${nextLink ? ' (more items available; pass the returned cursor to see them)' : ''}:\n\n${fileList}`
+      }],
+      structuredContent: {
+        items: response.value.map((item) => ({
+          id: item.id,
+          name: item.name,
+          isFolder: !!item.folder,
+          size: item.size ?? null,
+          lastModifiedDateTime: item.lastModifiedDateTime || null
+        })),
+        nextCursor: nextLink
+      }
     };
   } catch (error) {
     if (error.message === 'Authentication required') {

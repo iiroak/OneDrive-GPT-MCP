@@ -2,7 +2,6 @@
   "id": "outlook",
   "name": "Outlook and OneDrive",
   "endpoint": "http://127.0.0.1:8767/outlook/internal-admin/v1",
-  "unit": "mcp-outlook.service",
   "token_env": "MCP_ADMIN_OUTLOOK_TOKEN",
   "manifest": {
     "protocol": "iroak.mcp-admin/v1",

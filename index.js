@@ -36,10 +36,16 @@ const WRITE_TOOLS = new Set([
   'create-master-category', 'update-master-category', 'delete-master-category',
   'create-folder', 'move-emails', 'create-rule', 'edit-rule-sequence',
   'onedrive-upload', 'onedrive-upload-large', 'onedrive-import-url', 'onedrive-share',
-  'onedrive-create-folder', 'onedrive-move', 'onedrive-delete'
+  'onedrive-create-folder', 'onedrive-move', 'onedrive-delete',
+  'onedrive-revoke-link', 'onedrive-unshare', 'onedrive-invite', 'onedrive-update-permission',
+  'onedrive-copy', 'onedrive-update-item', 'onedrive-restore-version', 'onedrive-restore-item',
+  'onedrive-resolve-link',
+  'onedrive-permanent-delete'
 ]);
 const DESTRUCTIVE_TOOLS = new Set([
-  'permanently-delete-email', 'cancel-event', 'delete-event', 'delete-calendar', 'migrate-events', 'delete-master-category', 'onedrive-delete'
+  'permanently-delete-email', 'cancel-event', 'delete-event', 'delete-calendar', 'migrate-events', 'delete-master-category',
+  'onedrive-delete', 'onedrive-unshare', 'onedrive-revoke-link', 'onedrive-update-permission',
+  'onedrive-permanent-delete', 'onedrive-restore-version'
 ]);
 
 function toolPolicy(tool) {

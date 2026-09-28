@@ -2,6 +2,7 @@
  * OneDrive move and rename functionality
  */
 const { callGraphAPI } = require('../utils/graph-api');
+const { encodeId, encodePath, itemEndpoint } = require('../utils/onedrive-resolve');
 const { ensureAuthenticated } = require('../auth');
 
 /**
@@ -44,9 +45,7 @@ async function handleMoveItem(args) {
 
   try {
     const accessToken = await ensureAuthenticated();
-    const sourceEndpoint = itemId
-      ? `me/drive/items/${itemId}`
-      : `me/drive/root:/${path.replace(/^\/+|\/+$/g, '')}`;
+    const sourceEndpoint = itemEndpoint({ itemId, path });
     const source = await callGraphAPI(accessToken, 'GET', sourceEndpoint);
 
     if (!source || !source.id) {
@@ -65,7 +64,7 @@ async function handleMoveItem(args) {
       const normalizedDestination = destinationPath.replace(/^\/+|\/+$/g, '');
       const isRootDestination = !normalizedDestination || normalizedDestination === 'root';
       const destinationEndpoint = !isRootDestination
-        ? `me/drive/root:/${normalizedDestination}`
+        ? `me/drive/root:/${encodePath(destinationPath)}`
         : 'me/drive/root';
       const destination = await callGraphAPI(accessToken, 'GET', destinationEndpoint);
 
@@ -93,7 +92,7 @@ async function handleMoveItem(args) {
 
     if (newName !== undefined) body.name = newName;
 
-    const updated = await callGraphAPI(accessToken, 'PATCH', `me/drive/items/${source.id}`, body);
+    const updated = await callGraphAPI(accessToken, 'PATCH', `me/drive/items/${encodeId(source.id)}`, body);
     const finalName = updated?.name || newName || source.name;
     const action = destinationPath && newName !== undefined
       ? `Moved "${source.name}" to "${destinationName}" and renamed it to "${finalName}".`

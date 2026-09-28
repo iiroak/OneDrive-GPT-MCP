@@ -1,6 +1,7 @@
 const fs = require('fs').promises;
 const https = require('https');
 const { callGraphAPI } = require('../utils/graph-api');
+const { encodePath } = require('../utils/onedrive-resolve');
 const { ensureAuthenticated } = require('../auth');
 
 const CHUNK_SIZE = 320 * 1024 * 10;
@@ -10,7 +11,7 @@ async function uploadFilePath(filePath, destinationPath, conflictBehavior = 'ren
 
   const accessToken = await ensureAuthenticated();
   const stats = await fs.stat(filePath);
-  const normalizedPath = destinationPath.replace(/^\/+|\/+$/g, '');
+  const normalizedPath = encodePath(destinationPath);
   const sessionEndpoint = `me/drive/root:/${normalizedPath}:/createUploadSession`;
   const sessionResponse = await callGraphAPI(accessToken, 'POST', sessionEndpoint, {
     item: { '@microsoft.graph.conflictBehavior': conflictBehavior }

@@ -9,6 +9,7 @@
   "scripts": {
     "start": "node index.js",
     "start:http": "node server.js",
+    "test": "node --test",
     "inspect": "pnpm dlx @modelcontextprotocol/inspector node index.js"
   },
   "keywords": [

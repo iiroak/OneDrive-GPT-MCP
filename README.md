@@ -81,6 +81,8 @@ Permisos delegados principales:
 - `MailboxSettings.ReadWrite`
 - `Calendars.ReadWrite`
 - `Files.ReadWrite`
+- `Files.ReadWrite.All` (requerido por `onedrive-restore-item`; OneDrive
+  Personal no acepta esa operación con el scope `Files.ReadWrite` simple)
 
 La configuración de producción se almacena fuera del repositorio mediante MCP
 Admin. No se deben commitear credenciales, tokens, claves OAuth ni archivos `.env`.
@@ -125,9 +127,10 @@ pnpm run start:http
 pnpm run inspect
 ```
 
-Este despliegue independiente no incluye una suite automatizada. La verificación
-mínima consiste en cargar `index.js` y `server.js`, iniciar el servidor HTTP y
-comprobar `/health`.
+`pnpm test` ejecuta la suite de regresión (validación de URLs Graph, rutas
+OneDrive, paginación/reintentos, scopes, operaciones destructivas y monitor
+asíncrono). Antes de desplegar, además se comprueba que `index.js` y `server.js`
+cargan y que el endpoint HTTP `/health` responde.
 
 ## Agradecimientos
 

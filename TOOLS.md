@@ -7,8 +7,8 @@ Referencia de las tools definidas en `index.js` y los módulos `auth/`,
 
 | Transporte | Endpoint | Tools |
 |---|---|---:|
-| MCP remoto | `https://mcp.example.com/outlook/mcp` | 46 |
-| MCP stdio/local | `node index.js` | 46 |
+| MCP remoto | `https://mcp.example.com/outlook/mcp` | 62 |
+| MCP stdio/local | `node index.js` | 62 |
 
 El remoto usa el flujo OAuth/PKCE del propio MCP para autorizar al cliente y
 conserva aparte el OAuth delegado de Microsoft Graph.
@@ -406,7 +406,8 @@ El modelo no debe inventar esos valores ni convertir el archivo a otro formato.
 | Parámetro | Tipo | Requerido | Descripción |
 |---|---|---:|---|
 | `path` | string | no | Ruta, por ejemplo `/Documents` o `/Photos`; raíz por defecto. |
-| `count` | number | no | Predeterminado 25, máximo 50. |
+| `count` | number | no | Predeterminado 25, máximo 50 por página. |
+| `cursor` | string | no | `nextCursor` devuelto por una llamada anterior; si se pasa, ignora `path`/`count`. |
 
 ## `onedrive-search`
 
@@ -415,8 +416,9 @@ El modelo no debe inventar esos valores ni convertir el archivo a otro formato.
 
 | Parámetro | Tipo | Requerido |
 |---|---|---:|
-| `query` | string | sí |
-| `count` | number | no; predeterminado 25, máximo 50 |
+| `query` | string | uno de `query`/`cursor` |
+| `count` | number | no; predeterminado 25, máximo 50 por página |
+| `cursor` | string | uno de `query`/`cursor`; `nextCursor` de una llamada anterior |
 
 ## `onedrive-download`
 
@@ -545,20 +547,106 @@ resultado a OneDrive sin incrustar los bytes en la petición MCP.
 |---|---|---:|---|
 | `itemId` | string | uno de `itemId`/`path` |
 | `path` | string | uno de `itemId`/`path` |
-| `type` | string | no | `view`, `edit` o `embed`; predeterminado `view`. |
-| `scope` | string | no | `anonymous` u `organization`; predeterminado `anonymous`. |
+| `type` | string | no | `view`, `edit` o `embed` (embed solo OneDrive Personal); predeterminado `view`. |
+| `scope` | string | no | `anonymous` u `organization` (organization solo OneDrive for Business/SharePoint); predeterminado `anonymous`. |
+| `password` | string | no | Solo OneDrive Personal. |
+| `expirationDateTime` | string | no | ISO 8601 (`yyyy-MM-ddTHH:mm:ssZ`). |
 
+Al compartir por primera vez Graph conserva los permisos heredados por defecto.
 Crear enlaces `anonymous` expone el archivo fuera del control OAuth del MCP.
+La respuesta incluye `permissionId`: guardarlo para poder revocar el enlace
+después con `onedrive-revoke-link`. `scope: "users"` (compartir solo con
+personas concretas) no existe en OneDrive Personal; usar `onedrive-invite`.
+
+## `onedrive-list-permissions`
+
+**Scope:** `outlook:read`
+**Efecto:** ninguno. Lista quién tiene acceso a un archivo o carpeta: cada
+enlace y cada invitación directa, con su `id` de permiso.
+
+| Parámetro | Tipo | Requerido |
+|---|---|---:|
+| `itemId` | string | uno de `itemId`/`path` |
+| `path` | string | uno de `itemId`/`path` |
+
+## `onedrive-revoke-link`
+
+**Scope:** `outlook:destructive`
+**Efecto:** revoca un permiso específico (enlace o invitación directa) por su
+`id`. Los permisos heredados de una carpeta padre no se pueden revocar aquí.
+
+| Parámetro | Tipo | Requerido |
+|---|---|---:|
+| `itemId` | string | uno de `itemId`/`path` |
+| `path` | string | uno de `itemId`/`path` |
+| `permissionId` | string | sí |
+
+## `onedrive-unshare`
+
+**Scope:** `outlook:destructive`
+**Efecto:** vuelve privado un archivo o carpeta revocando todos sus permisos
+no heredados (todos los enlaces e invitaciones) en una sola llamada.
+
+| Parámetro | Tipo | Requerido | Descripción |
+|---|---|---:|---|
+| `itemId` | string | uno de `itemId`/`path` | |
+| `path` | string | uno de `itemId`/`path` | |
+| `confirm` | boolean | no | Predeterminado `false` (dry run: solo lista qué se revocaría). |
+
+## `onedrive-invite`
+
+**Scope:** `outlook:write`
+**Efecto:** comparte con personas concretas por email, sin crear un enlace
+público. Es la forma correcta de "compartir solo con estas personas" en
+OneDrive Personal.
+
+| Parámetro | Tipo | Requerido | Descripción |
+|---|---|---:|---|
+| `itemId` | string | uno de `itemId`/`path` | |
+| `path` | string | uno de `itemId`/`path` | |
+| `recipients` | string[] | sí | Direcciones de email. |
+| `role` | string | no | `read` (predeterminado) o `write`. |
+| `message` | string | no | Máximo 2000 caracteres. |
+| `requireSignIn` | boolean | no | Predeterminado `true`. |
+| `sendInvitation` | boolean | no | Predeterminado `true`; `false` otorga acceso sin notificar. |
+| `password` | string | no | Solo OneDrive Personal. |
+| `expirationDateTime` | string | no | ISO 8601. |
+
+## `onedrive-update-permission`
+
+**Scope:** `outlook:destructive`
+**Efecto:** cambia el rol de un permiso directo/invitado existente. No puede
+cambiar el rol de un enlace `organization` o de personas específicas (hay que
+revocar y recrear).
+
+| Parámetro | Tipo | Requerido |
+|---|---|---:|
+| `itemId` | string | uno de `itemId`/`path` |
+| `path` | string | uno de `itemId`/`path` |
+| `permissionId` | string | sí |
+| `roles` | string[] | sí; valores `read`, `write`, `owner` |
+
+## `onedrive-resolve-link`
+
+**Scope:** `outlook:write`
+**Efecto:** resuelve una URL de sharing al item al que apunta (nombre, ID,
+tamaño). Graph puede redimir el enlace si hace falta para poder resolverlo.
+
+| Parámetro | Tipo | Requerido | Descripción |
+|---|---|---:|---|
+| `url` | string | sí | |
+| `redeem` | boolean | no | Predeterminado `false` (redime solo si Graph lo considera necesario). Si `true`, solicita redención explícita y puede otorgar acceso duradero a la cuenta. |
 
 ## `onedrive-create-folder`
 
 **Scope:** `outlook:write`
 **Efecto:** crea una carpeta.
 
-| Parámetro | Tipo | Requerido |
-|---|---|---:|
-| `name` | string | sí |
-| `path` | string | no; carpeta padre, raíz por defecto |
+| Parámetro | Tipo | Requerido | Descripción |
+|---|---|---:|---|
+| `name` | string | sí | |
+| `path` | string | no | Carpeta padre, raíz por defecto. |
+| `conflictBehavior` | string | no | `rename` (predeterminado) o `fail`; no se permite reemplazar el contenido de una carpeta existente. |
 
 ## `onedrive-move`
 
@@ -572,16 +660,156 @@ Crear enlaces `anonymous` expone el archivo fuera del control OAuth del MCP.
 | `destinationPath` | string | uno de `destinationPath`/`newName` | Carpeta destino; `/` o `root` para raíz. |
 | `newName` | string | uno de `destinationPath`/`newName` | Nuevo nombre. |
 
-## `onedrive-delete`
+## `onedrive-copy`
 
-**Scope:** `outlook:destructive`
-**Efecto:** elimina un archivo o carpeta de OneDrive. No se debe usar sin
-confirmación explícita.
+**Scope:** `outlook:write`
+**Efecto:** copia un archivo o carpeta a una carpeta destino, opcionalmente
+renombrando la copia. Operación asíncrona de Graph; por defecto espera hasta
+30s a que termine.
+
+| Parámetro | Tipo | Requerido | Descripción |
+|---|---|---:|---|
+| `itemId` | string | uno de `itemId`/`path` | |
+| `path` | string | uno de `itemId`/`path` | |
+| `destinationPath` | string | sí | |
+| `newName` | string | no | |
+| `wait` | boolean | no | Predeterminado `true`. Si `false`, retorna en cuanto Graph acepta la petición. |
+
+En OneDrive Personal, `conflictBehavior` no aplica a `copy`: una colisión de
+nombre en destino se reporta como fallo por el monitor asíncrono, no se
+resuelve automáticamente. Graph no conserva los permisos del original: la
+copia hereda los permisos de la carpeta destino. Comprueba la carpeta destino
+antes de copiar un archivo sensible.
+
+## `onedrive-update-item`
+
+**Scope:** `outlook:write`
+**Efecto:** actualiza metadatos: `description` (solo OneDrive Personal) y/o
+timestamps del sistema de archivos. Para renombrar o mover, usar
+`onedrive-move`.
+
+| Parámetro | Tipo | Requerido | Descripción |
+|---|---|---:|---|
+| `itemId` | string | uno de `itemId`/`path` | |
+| `path` | string | uno de `itemId`/`path` | |
+| `description` | string | no | Solo OneDrive Personal. |
+| `createdDateTime` | string | no | ISO 8601. |
+| `lastModifiedDateTime` | string | no | ISO 8601. |
+| `ifMatch` | string | no | eTag/cTag para concurrencia optimista; rechaza si el item cambió. |
+
+## `onedrive-list-versions`
+
+**Scope:** `outlook:read`
+**Efecto:** ninguno. Lista versiones anteriores de un archivo, más reciente
+primero.
 
 | Parámetro | Tipo | Requerido |
 |---|---|---:|
 | `itemId` | string | uno de `itemId`/`path` |
 | `path` | string | uno de `itemId`/`path` |
+
+## `onedrive-restore-version`
+
+**Scope:** `outlook:destructive`
+**Efecto:** restaura un archivo a una versión anterior (crea una nueva
+versión actual; el historial se conserva).
+
+| Parámetro | Tipo | Requerido |
+|---|---|---:|
+| `itemId` | string | uno de `itemId`/`path` |
+| `path` | string | uno de `itemId`/`path` |
+| `versionId` | string | sí |
+
+## `onedrive-quota`
+
+**Scope:** `outlook:read`
+**Efecto:** ninguno. Sin parámetros. Devuelve total, usado, restante, uso de
+papelera de reciclaje y estado (`normal`/`nearing`/`critical`/`exceeded`).
+
+## `onedrive-delta`
+
+**Scope:** `outlook:read`
+**Efecto:** ninguno. Rastrea cambios (creados/modificados/eliminados) en todo
+el OneDrive desde una sincronización anterior. Alcance solo de raíz completa;
+Graph v1.0 no documenta delta por subcarpeta.
+
+| Parámetro | Tipo | Requerido | Descripción |
+|---|---|---:|---|
+| `cursor` | string | no | `nextCursor` o `deltaCursor` de una llamada anterior. Omitir para sincronización completa. |
+| `maxItems` | number | no | Predeterminado 200, máximo 1000. |
+
+Un `410 Gone` indica que el cursor expiró: volver a llamar sin `cursor` para
+reiniciar. Guardar `deltaCursor` (no `nextCursor`) para la siguiente sesión.
+
+## `onedrive-thumbnails`
+
+**Scope:** `outlook:read`
+**Efecto:** ninguno directo; devuelve una URL temporal de proxy (mismo
+mecanismo que `onedrive-download`, sin exponer el token de Graph al CDN).
+
+| Parámetro | Tipo | Requerido | Valores |
+|---|---|---:|---|
+| `itemId` | string | uno de `itemId`/`path` | |
+| `path` | string | uno de `itemId`/`path` | |
+| `size` | string | no | `small`, `medium` (predeterminado), `large`, `smallSquare`, `mediumSquare`, `largeSquare`. |
+
+## `onedrive-convert`
+
+**Scope:** `outlook:read`
+**Efecto:** ninguno directo; convierte a PDF y devuelve una URL de descarga
+temporal (mismo mecanismo de proxy).
+
+| Parámetro | Tipo | Requerido | Valores |
+|---|---|---:|---|
+| `itemId` | string | uno de `itemId`/`path` | |
+| `path` | string | uno de `itemId`/`path` | |
+| `format` | string | no | Solo `pdf` por ahora. |
+
+Formatos de origen soportados: documentos Office, ODF, HTML, Markdown, RTF,
+EML, MSG, EPUB, DWG, TIFF, Loop/Whiteboard. **No soportados:** `txt`, `csv`,
+`json`, ni la mayoría de imágenes.
+
+## `onedrive-delete`
+
+**Scope:** `outlook:destructive`
+**Efecto:** elimina un archivo o carpeta de OneDrive (a la papelera de
+reciclaje; recuperable con `onedrive-restore-item` usando el `itemId`
+devuelto). No se debe usar sin confirmación explícita. Para un borrado
+irreversible que salta la papelera, usar `onedrive-permanent-delete`.
+
+| Parámetro | Tipo | Requerido |
+|---|---|---:|
+| `itemId` | string | uno de `itemId`/`path` |
+| `path` | string | uno de `itemId`/`path` |
+
+## `onedrive-permanent-delete`
+
+**Scope:** `outlook:destructive`
+**Efecto:** elimina PERMANENTEMENTE, saltando la papelera de reciclaje.
+**Irreversible**: Graph v1.0 no ofrece forma de listar ni recuperar un item
+purgado. Por defecto es dry run; requiere `confirm: true` para ejecutar.
+
+| Parámetro | Tipo | Requerido | Descripción |
+|---|---|---:|---|
+| `itemId` | string | uno de `itemId`/`path` | |
+| `path` | string | uno de `itemId`/`path` | |
+| `confirm` | boolean | no | Predeterminado `false` (dry run). |
+
+## `onedrive-restore-item`
+
+**Scope:** `outlook:write`
+**Efecto:** restaura un item eliminado de la papelera de reciclaje, por su
+`itemId` (el que tenía antes de eliminarse, devuelto por `onedrive-delete`).
+Solo OneDrive Personal; requiere el scope `Files.ReadWrite.All` (no el
+`Files.ReadWrite` que usa el resto del servidor) — si el consentimiento OAuth
+es anterior a este cambio, hace falta re-autenticar. Graph v1.0 no permite
+listar la papelera, así que esto solo funciona si ya se tiene el `itemId`.
+
+| Parámetro | Tipo | Requerido | Descripción |
+|---|---|---:|---|
+| `itemId` | string | sí | ID que tenía el item antes de eliminarse. |
+| `destinationFolderId` | string | no | Restaurar en otra carpeta en vez de la original. |
+| `newName` | string | no | |
 
 # Protocolo De Archivos
 
@@ -635,4 +863,16 @@ permisos de directorio `0700`; los archivos deben quedar con `0600`.
 | Transferir imagen/audio/ZIP/binario | `onedrive-export-file` |
 | Entregar bytes a otro backend | `onedrive-download` |
 | Leer un recurso ya descargado | `resources/read` |
-| Compartir públicamente | `onedrive-share` |
+| Compartir públicamente (enlace) | `onedrive-share` |
+| Compartir solo con personas concretas | `onedrive-invite` |
+| Ver quién tiene acceso | `onedrive-list-permissions` |
+| Revocar un enlace/acceso puntual | `onedrive-revoke-link` |
+| Volver privado (revocar todo) | `onedrive-unshare` |
+| Copiar (mantener el original) | `onedrive-copy` |
+| Mover o renombrar | `onedrive-move` |
+| Borrado recuperable | `onedrive-delete` + `onedrive-restore-item` |
+| Borrado irreversible | `onedrive-permanent-delete` |
+| Convertir a PDF | `onedrive-convert` |
+| Vista previa en miniatura | `onedrive-thumbnails` |
+| Sincronizar cambios incrementales | `onedrive-delta` |
+| Espacio disponible | `onedrive-quota` |

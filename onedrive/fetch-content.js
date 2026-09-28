@@ -10,6 +10,7 @@ const pathModule = require('path');
 
 const config = require('../config');
 const { callGraphAPI } = require('../utils/graph-api');
+const { itemEndpoint } = require('../utils/onedrive-resolve');
 const { ensureAuthenticated } = require('../auth');
 const { fetchBytes, looksLikeHtml } = require('../utils/binary-fetch');
 const { getFileStore, safeFilename } = require('../utils/file-store');
@@ -55,9 +56,7 @@ function mimeTypeFor(filename) {
  * @returns {Promise<object>}
  */
 async function resolveItem(accessToken, args) {
-  const endpoint = args.itemId
-    ? `me/drive/items/${args.itemId}`
-    : `me/drive/root:/${String(args.path).replace(/^\/+|\/+$/g, '')}`;
+  const endpoint = itemEndpoint(args);
 
   const response = await callGraphAPI(accessToken, 'GET', endpoint, null, {
     $select: 'id,name,size,file,folder,@microsoft.graph.downloadUrl'
@@ -100,7 +99,7 @@ async function stageItem(args) {
   const target = downloadUrl
     ? { url: downloadUrl, headers: {} }
     : {
-      url: `${config.GRAPH_API_ENDPOINT}me/drive/items/${item.id}/content`,
+      url: `${config.GRAPH_API_ENDPOINT}${itemEndpoint({ itemId: item.id })}/content`,
       headers: { Authorization: `Bearer ${accessToken}` }
     };
 

@@ -63,7 +63,11 @@ module.exports = {
     clientId: override('ms_client_id', process.env.MS_CLIENT_ID || process.env.OUTLOOK_CLIENT_ID || ''),
     clientSecret: override('ms_client_secret', process.env.MS_CLIENT_SECRET || process.env.OUTLOOK_CLIENT_SECRET || ''),
     redirectUri: process.env.MS_REDIRECT_URI || `${publicBaseUrl}/microsoft/callback`,
-    scopes: String(override('ms_scopes', process.env.MS_SCOPES || 'offline_access openid profile User.Read Mail.ReadWrite Mail.Send MailboxSettings.ReadWrite Calendars.ReadWrite Files.ReadWrite')).split(/\s+/).filter(Boolean),
+    // Files.ReadWrite.All is required by onedrive-restore-item (Graph's
+    // driveItem:restore documents Files.ReadWrite as NOT sufficient on
+    // personal Microsoft accounts). Adding it here means existing
+    // deployments need to re-consent once for the new scope to take effect.
+    scopes: String(override('ms_scopes', process.env.MS_SCOPES || 'offline_access openid profile User.Read Mail.ReadWrite Mail.Send MailboxSettings.ReadWrite Calendars.ReadWrite Files.ReadWrite Files.ReadWrite.All')).split(/\s+/).filter(Boolean),
     tokenStorePath: process.env.MS_TOKEN_STORE_PATH || path.join(dataDir, 'microsoft-tokens.json'),
   },
   MS_TENANT_ID: override('ms_tenant_id', process.env.MS_TENANT_ID || 'consumers'),

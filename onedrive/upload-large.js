@@ -4,6 +4,7 @@
 const https = require('https');
 const config = require('../config');
 const { callGraphAPI } = require('../utils/graph-api');
+const { encodePath } = require('../utils/onedrive-resolve');
 const { ensureAuthenticated } = require('../auth');
 const { decodeUploadContent } = require('./upload-content');
 const { uploadFilePath } = require('./upload-file');
@@ -57,7 +58,7 @@ async function handleUploadLarge(args) {
     const fileSize = contentBuffer.length;
 
     // Normalize path
-    const normalizedPath = path.replace(/^\/+|\/+$/g, '');
+    const normalizedPath = encodePath(path);
 
     // Step 1: Create upload session
     const sessionEndpoint = `me/drive/root:/${normalizedPath}:/createUploadSession`;

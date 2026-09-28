@@ -2,6 +2,7 @@
  * OneDrive folder operations (create/delete)
  */
 const { callGraphAPI } = require('../utils/graph-api');
+const { encodePath, itemEndpoint } = require('../utils/onedrive-resolve');
 const { ensureAuthenticated } = require('../auth');
 
 /**
@@ -12,12 +13,22 @@ const { ensureAuthenticated } = require('../auth');
 async function handleCreateFolder(args) {
   const path = args.path;
   const name = args.name;
+  const conflictBehavior = args.conflictBehavior || 'rename';
 
   if (!name) {
     return {
       content: [{
         type: "text",
         text: "Folder name is required."
+      }]
+    };
+  }
+
+  if (!['rename', 'fail'].includes(conflictBehavior)) {
+    return {
+      content: [{
+        type: "text",
+        text: "conflictBehavior must be 'rename' or 'fail'."
       }]
     };
   }
@@ -30,17 +41,29 @@ async function handleCreateFolder(args) {
     if (!path || path === '/' || path === 'root') {
       endpoint = 'me/drive/root/children';
     } else {
-      const normalizedPath = path.replace(/^\/+|\/+$/g, '');
-      endpoint = `me/drive/root:/${normalizedPath}:/children`;
+      endpoint = `me/drive/root:/${encodePath(path)}:/children`;
     }
 
     const body = {
       name: name,
       folder: {},
-      '@microsoft.graph.conflictBehavior': 'rename'
+      '@microsoft.graph.conflictBehavior': conflictBehavior
     };
 
-    const response = await callGraphAPI(accessToken, 'POST', endpoint, body);
+    let response;
+    try {
+      response = await callGraphAPI(accessToken, 'POST', endpoint, body);
+    } catch (error) {
+      if (conflictBehavior === 'fail' && (error.code === 'nameAlreadyExists' || error.status === 409)) {
+        return {
+          content: [{
+            type: "text",
+            text: `A folder named "${name}" already exists in ${path || 'root'}.`
+          }]
+        };
+      }
+      throw error;
+    }
 
     if (!response || !response.id) {
       return {
@@ -98,13 +121,7 @@ async function handleDeleteItem(args) {
     const accessToken = await ensureAuthenticated();
 
     // Get item details first (to confirm existence and get name)
-    let endpoint;
-    if (itemId) {
-      endpoint = `me/drive/items/${itemId}`;
-    } else {
-      const normalizedPath = path.replace(/^\/+|\/+$/g, '');
-      endpoint = `me/drive/root:/${normalizedPath}`;
-    }
+    const endpoint = itemEndpoint({ itemId, path });
 
     // Get item info first
     const itemInfo = await callGraphAPI(accessToken, 'GET', endpoint);
@@ -122,14 +139,26 @@ async function handleDeleteItem(args) {
     const isFolder = !!itemInfo.folder;
 
     // Delete the item
-    const deleteEndpoint = `me/drive/items/${itemInfo.id}`;
+    const deleteEndpoint = itemEndpoint({ itemId: itemInfo.id });
     await callGraphAPI(accessToken, 'DELETE', deleteEndpoint);
 
     return {
       content: [{
         type: "text",
-        text: `Successfully deleted ${isFolder ? 'folder' : 'file'} "${itemName}".`
-      }]
+        text: `Successfully deleted ${isFolder ? 'folder' : 'file'} "${itemName}" (moved to the recycle bin; recoverable with onedrive-restore-item using this item ID).\n\nID: ${itemInfo.id}`
+      }],
+      // Deletion moves the item to the recycle bin (Graph DELETE, not
+      // permanentDelete) and is recoverable via onedrive-restore-item, but
+      // ONLY if the caller has the item ID — Graph v1.0 has no OneDrive
+      // recycle-bin listing endpoint. Surfacing it here is the only chance
+      // to capture it before it becomes hard to find again.
+      structuredContent: {
+        itemId: itemInfo.id,
+        itemName,
+        isFolder,
+        recoverable: true,
+        restoreHint: 'Call onedrive-restore-item with this itemId to recover it from the recycle bin.'
+      }
     };
   } catch (error) {
     if (error.message === 'Authentication required') {

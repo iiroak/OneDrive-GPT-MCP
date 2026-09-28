@@ -12,6 +12,21 @@ const handleImportUrl = require('./import-url');
 const handleShare = require('./share');
 const handleMoveItem = require('./move');
 const { handleCreateFolder, handleDeleteItem } = require('./folder');
+const { handleListPermissions } = require('./list-permissions');
+const handleRevokeLink = require('./revoke-link');
+const handleUnshare = require('./unshare');
+const handleInvite = require('./invite');
+const handleUpdatePermission = require('./update-permission');
+const { handleResolveLink } = require('./resolve-link');
+const handleCopy = require('./copy');
+const handleUpdateItem = require('./update-item');
+const { handleListVersions, handleRestoreVersion } = require('./versions');
+const handlePermanentDelete = require('./permanent-delete');
+const handleRestoreItem = require('./restore-item');
+const handleQuota = require('./quota');
+const handleDelta = require('./delta');
+const handleThumbnails = require('./thumbnails');
+const handleConvert = require('./convert');
 
 const CHATGPT_FILE_SCHEMA = {
   type: "object",
@@ -51,7 +66,11 @@ const onedriveTools = [
         },
         count: {
           type: "number",
-          description: "Number of items to retrieve (default: 25, max: 50)"
+          description: "Number of items to retrieve per page (default: 25, max: 50)"
+        },
+        cursor: {
+          type: "string",
+          description: "Opaque nextCursor from a previous onedrive-list call, to fetch the next page. When provided, path and count are ignored."
         }
       },
       required: []
@@ -70,10 +89,14 @@ const onedriveTools = [
         },
         count: {
           type: "number",
-          description: "Number of results to return (default: 25, max: 50)"
+          description: "Number of results per page (default: 25, max: 50)"
+        },
+        cursor: {
+          type: "string",
+          description: "Opaque nextCursor from a previous onedrive-search call, to fetch the next page. When provided, query and count are ignored."
         }
       },
-      required: ["query"]
+      required: []
     },
     handler: handleSearchFiles
   },
@@ -211,7 +234,7 @@ const onedriveTools = [
   },
   {
     name: "onedrive-share",
-    description: "Create a sharing link for a file or folder in OneDrive",
+    description: "Create a public or organization-wide sharing link for a file or folder. For sharing with specific named people instead, use onedrive-invite. To later revoke a link created here, use onedrive-revoke-link with the returned permissionId.",
     inputSchema: {
       type: "object",
       properties: {
@@ -225,18 +248,127 @@ const onedriveTools = [
         },
         type: {
           type: "string",
-          description: "Link type: 'view' (default), 'edit', or 'embed'",
+          description: "Link type: 'view' (default), 'edit', or 'embed' (embed is OneDrive Personal only)",
           enum: ["view", "edit", "embed"]
         },
         scope: {
           type: "string",
-          description: "Link scope: 'anonymous' (default) or 'organization'",
+          description: "Link scope: 'anonymous' (default; anyone with the link) or 'organization' (OneDrive for Business/SharePoint only). 'users' is not supported on OneDrive Personal; use onedrive-invite instead.",
           enum: ["anonymous", "organization"]
-        }
+        },
+        password: {
+          type: "string",
+          description: "Optional password required to open the link. OneDrive Personal only."
+        },
+        expirationDateTime: {
+          type: "string",
+          description: "Optional ISO 8601 date-time (yyyy-MM-ddTHH:mm:ssZ) after which the link stops working."
+        },
       },
       required: []
     },
     handler: handleShare
+  },
+  {
+    name: "onedrive-list-permissions",
+    description: "List every sharing permission (links and direct invites) on a OneDrive file or folder, including who has access and each permission's ID. Use this before onedrive-revoke-link or onedrive-unshare.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        itemId: { type: "string", description: "ID of the item" },
+        path: { type: "string", description: "Path to the item (alternative to itemId)" }
+      },
+      required: []
+    },
+    handler: handleListPermissions
+  },
+  {
+    name: "onedrive-revoke-link",
+    description: "Revoke one specific sharing permission (a link or a direct grant) by its permission ID, obtained from onedrive-list-permissions or from the permissionId returned by onedrive-share.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        itemId: { type: "string", description: "ID of the item" },
+        path: { type: "string", description: "Path to the item (alternative to itemId)" },
+        permissionId: { type: "string", description: "The permission ID to revoke" }
+      },
+      required: ["permissionId"]
+    },
+    handler: handleRevokeLink
+  },
+  {
+    name: "onedrive-unshare",
+    description: "Make a file or folder private again by revoking every non-inherited sharing permission on it (all links and all invited people) in one call. Defaults to a dry run that lists what would be revoked; pass confirm=true to actually revoke.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        itemId: { type: "string", description: "ID of the item" },
+        path: { type: "string", description: "Path to the item (alternative to itemId)" },
+        confirm: { type: "boolean", description: "Set true to actually revoke. Defaults to false (dry run)." }
+      },
+      required: []
+    },
+    handler: handleUnshare
+  },
+  {
+    name: "onedrive-invite",
+    description: "Share a OneDrive file or folder with specific people by email, without creating a public link. This is the correct tool for 'share with only these people' on OneDrive Personal, since scope='users' on onedrive-share is not available there.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        itemId: { type: "string", description: "ID of the item" },
+        path: { type: "string", description: "Path to the item (alternative to itemId)" },
+        recipients: {
+          type: "array",
+          items: { type: "string" },
+          description: "Email addresses to grant access to"
+        },
+        role: {
+          type: "string",
+          description: "Access level to grant: 'read' (default) or 'write'",
+          enum: ["read", "write"]
+        },
+        message: { type: "string", description: "Optional message included in the invitation email (max 2000 chars)" },
+        requireSignIn: { type: "boolean", description: "Require the recipient to sign in to view the item. Defaults to true." },
+        sendInvitation: { type: "boolean", description: "Email the recipients a notification. Defaults to true. If false, access is granted silently." },
+        password: { type: "string", description: "Optional password. OneDrive Personal only." },
+        expirationDateTime: { type: "string", description: "Optional ISO 8601 date-time after which access expires." }
+      },
+      required: ["recipients"]
+    },
+    handler: handleInvite
+  },
+  {
+    name: "onedrive-update-permission",
+    description: "Change the role (read/write/owner) of an existing direct or invited permission. Cannot change the role of an organization-wide or specific-people link; revoke and recreate those instead.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        itemId: { type: "string", description: "ID of the item" },
+        path: { type: "string", description: "Path to the item (alternative to itemId)" },
+        permissionId: { type: "string", description: "The permission ID to update" },
+        roles: {
+          type: "array",
+          items: { type: "string", enum: ["read", "write", "owner"] },
+          description: "New role(s) for this permission"
+        }
+      },
+      required: ["permissionId", "roles"]
+    },
+    handler: handleUpdatePermission
+  },
+  {
+    name: "onedrive-resolve-link",
+    description: "Resolve a OneDrive/SharePoint sharing URL to the item it points to (name, ID, size). This may redeem the link if necessary and requires outlook:write.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        url: { type: "string", description: "The sharing URL to resolve" },
+        redeem: { type: "boolean", description: "If true, redeem the link for durable access to your account instead of just peeking at metadata. Defaults to false." }
+      },
+      required: ["url"]
+    },
+    handler: handleResolveLink
   },
   {
     name: "onedrive-create-folder",
@@ -251,6 +383,11 @@ const onedriveTools = [
         name: {
           type: "string",
           description: "Name of the new folder"
+        },
+        conflictBehavior: {
+          type: "string",
+          description: "Behavior when a folder with this name already exists: 'rename' (default, e.g. 'Docs 1') or 'fail'.",
+          enum: ["rename", "fail"]
         }
       },
       required: ["name"]
@@ -285,8 +422,129 @@ const onedriveTools = [
     handler: handleMoveItem
   },
   {
+    name: "onedrive-copy",
+    description: "Copy a file or folder to a destination folder, optionally renaming it. This is an asynchronous Graph operation; by default this tool waits up to 30s for it to finish. The copy does not retain the source permissions; it inherits the destination folder's permissions. On OneDrive Personal, name collisions are reported as failures.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        itemId: { type: "string", description: "ID of the item to copy" },
+        path: { type: "string", description: "Path to the item (alternative to itemId)" },
+        destinationPath: { type: "string", description: "Destination folder path. Use '/' or 'root' for the OneDrive root." },
+        newName: { type: "string", description: "Optional new name for the copy" },
+        wait: { type: "boolean", description: "Wait for the copy to finish before returning (default true). If false, returns immediately once Graph accepts the request." }
+      },
+      required: ["destinationPath"]
+    },
+    handler: handleCopy
+  },
+  {
+    name: "onedrive-update-item",
+    description: "Update writable metadata on a file or folder: description (OneDrive Personal only) and/or file system timestamps. Use onedrive-move for renaming or moving.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        itemId: { type: "string", description: "ID of the item" },
+        path: { type: "string", description: "Path to the item (alternative to itemId)" },
+        description: { type: "string", description: "New description. OneDrive Personal only." },
+        createdDateTime: { type: "string", description: "ISO 8601 date-time to set as the created timestamp." },
+        lastModifiedDateTime: { type: "string", description: "ISO 8601 date-time to set as the last-modified timestamp." },
+        ifMatch: { type: "string", description: "Optional eTag/cTag to require the item be unchanged since it was read (optimistic concurrency)." }
+      },
+      required: []
+    },
+    handler: handleUpdateItem
+  },
+  {
+    name: "onedrive-list-versions",
+    description: "List prior versions of a OneDrive file, newest first.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        itemId: { type: "string", description: "ID of the item" },
+        path: { type: "string", description: "Path to the item (alternative to itemId)" }
+      },
+      required: []
+    },
+    handler: handleListVersions
+  },
+  {
+    name: "onedrive-restore-version",
+    description: "Restore a file to a prior version (creates a new current version; existing version history is preserved).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        itemId: { type: "string", description: "ID of the item" },
+        path: { type: "string", description: "Path to the item (alternative to itemId)" },
+        versionId: { type: "string", description: "The version ID to restore, from onedrive-list-versions" }
+      },
+      required: ["versionId"]
+    },
+    handler: handleRestoreVersion
+  },
+  {
+    name: "onedrive-restore-item",
+    description: "Restore a deleted item from the recycle bin by its item ID (the ID it had before deletion, returned by onedrive-delete). OneDrive Personal only; Graph provides no way to list the recycle bin, so this only works if you already have the item ID.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        itemId: { type: "string", description: "The item's ID before it was deleted" },
+        destinationFolderId: { type: "string", description: "Optional folder ID to restore into, instead of its original location" },
+        newName: { type: "string", description: "Optional new name for the restored item" }
+      },
+      required: ["itemId"]
+    },
+    handler: handleRestoreItem
+  },
+  {
+    name: "onedrive-quota",
+    description: "Get the current OneDrive storage quota: total, used, remaining, recycle bin usage, and state.",
+    inputSchema: { type: "object", properties: {}, required: [] },
+    handler: handleQuota
+  },
+  {
+    name: "onedrive-delta",
+    description: "Track changes (created, modified, deleted items) across the whole OneDrive since a previous sync. Call with no cursor to start a full sync; save the returned deltaCursor and pass it as cursor next time to see only what changed since.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        cursor: { type: "string", description: "nextCursor or deltaCursor from a previous onedrive-delta call. Omit to start a full sync." },
+        maxItems: { type: "number", description: "Maximum changes to return in this call (default 200, max 1000)" }
+      },
+      required: []
+    },
+    handler: handleDelta
+  },
+  {
+    name: "onedrive-thumbnails",
+    description: "Get a temporary URL for a thumbnail image of a OneDrive file.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        itemId: { type: "string", description: "ID of the item" },
+        path: { type: "string", description: "Path to the item (alternative to itemId)" },
+        size: { type: "string", description: "Thumbnail size (default 'medium')", enum: ["small", "medium", "large", "smallSquare", "mediumSquare", "largeSquare"] }
+      },
+      required: []
+    },
+    handler: handleThumbnails
+  },
+  {
+    name: "onedrive-convert",
+    description: "Convert a supported OneDrive file (Office documents, HTML, Markdown, RTF, and a few others; NOT txt/csv/json/most images) to PDF and get a temporary download URL for the result.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        itemId: { type: "string", description: "ID of the item" },
+        path: { type: "string", description: "Path to the item (alternative to itemId)" },
+        format: { type: "string", description: "Target format. Only 'pdf' is currently supported.", enum: ["pdf"] }
+      },
+      required: []
+    },
+    handler: handleConvert
+  },
+  {
     name: "onedrive-delete",
-    description: "Delete a file or folder from OneDrive",
+    description: "Delete a file or folder from OneDrive (moves it to the recycle bin; recoverable with onedrive-restore-item using the returned item ID). For an irreversible purge that bypasses the recycle bin, use onedrive-permanent-delete instead.",
     inputSchema: {
       type: "object",
       properties: {
@@ -302,6 +560,20 @@ const onedriveTools = [
       required: []
     },
     handler: handleDeleteItem
+  },
+  {
+    name: "onedrive-permanent-delete",
+    description: "PERMANENTLY delete a file or folder, bypassing the recycle bin entirely. This cannot be undone through this MCP (Graph v1.0 has no way to list or recover a permanently-deleted item). Defaults to a dry run; pass confirm=true to actually delete.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        itemId: { type: "string", description: "ID of the item to permanently delete" },
+        path: { type: "string", description: "Path to the item (alternative to itemId)" },
+        confirm: { type: "boolean", description: "Set true to actually delete. Defaults to false (dry run)." }
+      },
+      required: []
+    },
+    handler: handlePermanentDelete
   }
 ];
 
@@ -318,5 +590,21 @@ module.exports = {
   handleShare,
   handleMoveItem,
   handleCreateFolder,
-  handleDeleteItem
+  handleDeleteItem,
+  handleListPermissions,
+  handleRevokeLink,
+  handleUnshare,
+  handleInvite,
+  handleUpdatePermission,
+  handleResolveLink,
+  handleCopy,
+  handleUpdateItem,
+  handleListVersions,
+  handleRestoreVersion,
+  handlePermanentDelete,
+  handleRestoreItem,
+  handleQuota,
+  handleDelta,
+  handleThumbnails,
+  handleConvert
 };

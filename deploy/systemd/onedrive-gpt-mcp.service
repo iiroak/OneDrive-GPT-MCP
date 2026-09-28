@@ -5,22 +5,24 @@ After=network-online.target
 
 [Service]
 Type=simple
-User=mcp-outlook
-Group=mcp-outlook
-WorkingDirectory=/opt/mcp/outlook
-EnvironmentFile=/etc/mcp/outlook.env
-ExecStart=/usr/bin/node /opt/mcp/outlook/server.js
+User=onedrive-gpt-mcp
+Group=onedrive-gpt-mcp
+EnvironmentFile=%h/.config/onedrive-gpt-mcp.env
+WorkingDirectory=%h/onedrive-gpt-mcp
+StateDirectory=onedrive-gpt-mcp
+StateDirectoryMode=0700
+Environment=OUTLOOK_DATA_DIR=%S/onedrive-gpt-mcp
+ExecStart=/usr/bin/node server.js
 Restart=on-failure
 RestartSec=5
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
-ProtectHome=true
+ProtectHome=read-only
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
-ReadWritePaths=/var/lib/mcp/outlook
 UMask=0077
 
 [Install]

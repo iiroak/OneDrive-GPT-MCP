@@ -31,14 +31,18 @@ its configuration from the MCP Admin data directory and does not commit secrets.
 Never commit Microsoft credentials, OAuth keys, tokens or production environment files.
 
 Required Microsoft Graph permissions include `User.Read`, `offline_access`,
-`Mail.ReadWrite`, `Mail.Send`, `MailboxSettings.ReadWrite`, `Calendars.ReadWrite`
-and `Files.ReadWrite`.
+`Mail.ReadWrite`, `Mail.Send`, `MailboxSettings.ReadWrite`, `Calendars.ReadWrite`,
+`Files.ReadWrite` and `Files.ReadWrite.All` (the last one is required by
+`onedrive-restore-item`, which OneDrive Personal does not accept under the
+plain `Files.ReadWrite` scope).
 
 ## Verification
 
-There is no automated test suite in this standalone deployment. At minimum, verify
-that `index.js` and `server.js` load successfully and that the HTTP health endpoint
-responds after starting the server.
+Run `pnpm test` for the regression suite, then verify `index.js` and `server.js`
+load successfully and that the HTTP health endpoint responds after starting the
+server. The suite covers Graph origin/prefix validation, paging and retry behavior,
+OneDrive path encoding, tool scopes, destructive dry runs, asynchronous-copy
+requests, and the rule that monitor URLs never receive Graph bearer credentials.
 
 ## Change Guidelines
 

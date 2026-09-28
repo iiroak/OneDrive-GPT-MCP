@@ -123,7 +123,7 @@ function createApp() {
       const accessToken = await ensureAuthenticated();
       const downloadUrl = await callGraphAPIDownload(
         accessToken,
-        `me/drive/items/${encodeURIComponent(target.itemId)}/content`
+        `me/drive/items/${encodeURIComponent(target.itemId)}${target.graphSuffix || '/content'}`
       );
       res.set({
         'Cache-Control': 'private, no-store, max-age=0',
@@ -290,6 +290,7 @@ function createApp() {
 
 function startHttp() {
   const app = createApp();
+  downloadCapabilities.startSweeper();
   const server = app.listen(config.HTTP_PORT, config.HTTP_HOST, () => {
     console.error(`${config.SERVER_NAME} HTTP server listening on ${config.HTTP_HOST}:${config.HTTP_PORT}`);
   });

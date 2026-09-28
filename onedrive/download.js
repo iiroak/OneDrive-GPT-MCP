@@ -2,6 +2,7 @@
  * OneDrive get download URL functionality
  */
 const { callGraphAPI } = require('../utils/graph-api');
+const { itemEndpoint } = require('../utils/onedrive-resolve');
 const { ensureAuthenticated } = require('../auth');
 const capability = require('./capability');
 const config = require('../config');
@@ -27,14 +28,7 @@ async function handleDownload(args) {
   try {
     const accessToken = await ensureAuthenticated();
 
-    // Build endpoint - by ID or by path
-    let endpoint;
-    if (itemId) {
-      endpoint = `me/drive/items/${itemId}`;
-    } else {
-      const normalizedPath = path.replace(/^\/+|\/+$/g, '');
-      endpoint = `me/drive/root:/${normalizedPath}`;
-    }
+    const endpoint = itemEndpoint({ itemId, path });
 
     // Only metadata is needed here. The capability endpoint resolves the
     // download through Graph's /content redirect, so this tool must not depend
